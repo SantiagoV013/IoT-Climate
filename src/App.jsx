@@ -21,6 +21,7 @@ import { formatRelativeTime, formatTimestamp, getTimestampMs } from './utils/tim
 const DEFAULT_DEVICE_ID = 'esp32_room_01';
 const DEVICES_PATH = '/devices';
 const ONLINE_WINDOW_MS = 60 * 1000;
+const WIFI_WARNING_WINDOW_MS = 5 * 60 * 1000;
 const LANGUAGE_STORAGE_KEY = 'environment-monitor-language';
 const DEVICE_STORAGE_KEY = 'environment-monitor-device';
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? '')
@@ -98,6 +99,11 @@ const translations = {
     device: 'Device',
     deviceSelector: 'Device selector',
     deviceDiscoveryError: 'Device discovery is blocked by Firebase rules.',
+    deviceOfflineWarning: 'Device offline',
+    deviceOfflineMessage: 'No Firebase telemetry. Check power and WiFi.',
+    deviceWifiWarning: 'WiFi warning',
+    deviceWifiMessage: 'Telemetry is delayed. Device may have power but no WiFi.',
+    deviceWeakWifiMessage: 'Weak WiFi signal. Move the device closer to the router.',
     status: 'Status',
     online: 'Online',
     offline: 'Offline',
@@ -232,6 +238,11 @@ const translations = {
     device: 'Dispositivo',
     deviceSelector: 'Selector de dispositivo',
     deviceDiscoveryError: 'Las reglas de Firebase bloquean la detección de dispositivos.',
+    deviceOfflineWarning: 'Dispositivo sin conexion',
+    deviceOfflineMessage: 'No hay telemetria en Firebase. Revisa energia y WiFi.',
+    deviceWifiWarning: 'Advertencia WiFi',
+    deviceWifiMessage: 'La telemetria esta retrasada. Puede tener energia pero no WiFi.',
+    deviceWeakWifiMessage: 'Senal WiFi debil. Acerca el dispositivo al router.',
     status: 'Estado',
     online: 'En línea',
     offline: 'Sin conexión',
@@ -384,6 +395,68 @@ const mergeAdminUsers = (userRecords = [], allowedRecords = []) => {
 const isReadingOnline = (reading, now = Date.now()) => {
   if (!reading?.time) return false;
   return now - reading.time <= ONLINE_WINDOW_MS;
+};
+
+const getDeviceConnectionWarning = (reading, labels, now = Date.now()) => {
+  if (!reading?.time) {
+    return {
+      level: 'red',
+      title: labels.deviceOfflineWarning,
+      message: labels.deviceOfflineMessage,
+    };
+  }
+
+  const age = now - reading.time;
+  if (age > WIFI_WARNING_WINDOW_MS) {
+    return {
+      level: 'red',
+      title: labels.deviceOfflineWarning,
+      message: labels.deviceOfflineMessage,
+    };
+  }
+
+  if (age > ONLINE_WINDOW_MS) {
+    return {
+      level: 'amber',
+      title: labels.deviceWifiWarning,
+      message: labels.deviceWifiMessage,
+    };
+  }
+
+  const rssi = Number(reading.rssi);
+  if (Number.isFinite(rssi) && rssi <= -80) {
+    return {
+      level: 'amber',
+      title: labels.deviceWifiWarning,
+      message: labels.deviceWeakWifiMessage,
+    };
+  }
+
+  return null;
+};
+
+const DeviceWarning = ({ warning, compact = false }) => {
+  if (!warning) return null;
+
+  const isRed = warning.level === 'red';
+  const classes = isRed
+    ? 'bg-red-50 text-red-700 ring-red-100'
+    : 'bg-amber-50 text-amber-700 ring-amber-100';
+  const dotClass = isRed ? 'bg-red-500' : 'bg-amber-400';
+
+  return (
+    <div
+      className={`flex items-start gap-2 rounded-2xl px-3 py-2 font-semibold ring-1 ${classes} ${
+        compact ? 'text-[10px]' : 'text-xs'
+      }`}
+    >
+      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <div className="min-w-0">
+        <p className="truncate">{warning.title}</p>
+        <p className="mt-0.5 line-clamp-2 font-medium opacity-80">{warning.message}</p>
+      </div>
+    </div>
+  );
 };
 
 const formatAuthError = (error) => {
@@ -1854,6 +1927,7 @@ const App = () => {
   const motionActive = Boolean(latestReading?.motion);
   const lastUpdatedTimestamp = latestReading?.time;
   const isOnline = isReadingOnline(latestReading, now);
+  const selectedDeviceWarning = getDeviceConnectionWarning(latestReading, t, now);
   const lastUpdatedValue = latestReading ? formatTimestamp(latestReading.timestamp) : '--';
   const lastUpdatedHelper = formatRelativeTime(lastUpdatedTimestamp) ?? t.noRelativeTime;
   const previousReading = history.find((reading) => reading.timestamp !== latestReading?.timestamp);
@@ -2442,19 +2516,18 @@ const App = () => {
           <AdminPanel labels={t} users={users} currentUserProfile={currentUserProfile} />
         ) : activeSection === 'overview' ? (
           <section className="space-y-4">
-            <div className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-950 sm:text-xl">{t.allDevices}</h2>
-                  <p className="mt-1 text-xs text-gray-500">{t.deviceOverviewSubtitle}</p>
+            <div className="glass-card rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold text-gray-950">{t.allDevices}</h2>
                 </div>
-                <div className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
+                <div className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
                   {overviewDevices.length} {t.devices}
                 </div>
               </div>
 
               {deviceDiscoveryError ? (
-                <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   {t.deviceDiscoveryError} {deviceDiscoveryError}
                 </p>
               ) : null}
@@ -2465,6 +2538,7 @@ const App = () => {
                 overviewDevices.map((device) => {
                   const latest = device.latest;
                   const online = isReadingOnline(latest, now);
+                  const warning = getDeviceConnectionWarning(latest, t, now);
                   const miniData = device.history ?? [];
                   return (
                     <button
@@ -2496,6 +2570,10 @@ const App = () => {
                           />
                           {online ? t.online : t.offline}
                         </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <DeviceWarning warning={warning} compact />
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
@@ -2660,6 +2738,9 @@ const App = () => {
                 </div>
               )}
             </div>
+          </div>
+          <div className="mt-2">
+            <DeviceWarning warning={selectedDeviceWarning} />
           </div>
         </section>
 
