@@ -121,6 +121,7 @@ const translations = {
     tvocSubtitle: 'Total Volatile Organic Compounds',
     wifiSignal: 'WiFi Signal',
     rssiSubtitle: 'RSSI connection quality',
+    lastKnownSignal: 'Last known signal',
     airQualityAnalytics: 'Air Quality Analytics',
     airQualitySubtitle: 'CCS811 gas sensor telemetry',
     currentCo2: 'Current CO2',
@@ -254,6 +255,7 @@ const translations = {
     tvocSubtitle: 'Compuestos organicos volatiles totales',
     wifiSignal: 'Senal WiFi',
     rssiSubtitle: 'Calidad de conexion RSSI',
+    lastKnownSignal: 'Ultima senal conocida',
     airQualityAnalytics: 'Analitica de calidad del aire',
     airQualitySubtitle: 'Telemetria del sensor CCS811',
     currentCo2: 'CO2 actual',
@@ -423,10 +425,97 @@ const buildMiniHistory = (history) => {
     }));
 };
 
-const MiniDeviceChart = ({ title, data, dataKey, color, unit = '' }) => (
+const OverviewSensorIcon = ({ name }) => {
+  const commonProps = {
+    className: 'h-3.5 w-3.5',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+    'aria-hidden': 'true',
+  };
+
+  const icons = {
+    status: (
+      <svg {...commonProps}>
+        <path d="M4 12h4l2-6 4 12 2-6h4" />
+      </svg>
+    ),
+    temperature: (
+      <svg {...commonProps}>
+        <path d="M14 14.76V5a4 4 0 0 0-8 0v9.76a6 6 0 1 0 8 0Z" />
+        <path d="M10 9v7" />
+      </svg>
+    ),
+    humidity: (
+      <svg {...commonProps}>
+        <path d="M12 3.5S6 10 6 14a6 6 0 0 0 12 0c0-4-6-10.5-6-10.5Z" />
+      </svg>
+    ),
+    light: (
+      <svg {...commonProps}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2" />
+        <path d="M12 20v2" />
+        <path d="M2 12h2" />
+        <path d="M20 12h2" />
+      </svg>
+    ),
+    motion: (
+      <svg {...commonProps}>
+        <path d="M5 12a7 7 0 0 1 7-7" />
+        <path d="M12 12h.01" />
+        <path d="M12 12l5 5" />
+      </svg>
+    ),
+    co2: (
+      <svg {...commonProps}>
+        <path d="M8 17h8a5 5 0 0 0 .5-9.97A6.5 6.5 0 0 0 4 9.5 4.5 4.5 0 0 0 8 17Z" />
+        <path d="M8 21h.01" />
+        <path d="M12 21h.01" />
+        <path d="M16 21h.01" />
+      </svg>
+    ),
+    tvoc: (
+      <svg {...commonProps}>
+        <path d="M12 3v4" />
+        <path d="M12 17v4" />
+        <path d="M3 12h4" />
+        <path d="M17 12h4" />
+      </svg>
+    ),
+  };
+
+  return icons[name] ?? null;
+};
+
+const overviewIconClasses = {
+  neutral: 'bg-gray-100 text-gray-700',
+  blue: 'bg-blue-50 text-blue-600',
+  green: 'bg-emerald-50 text-emerald-600',
+  amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-red-50 text-red-600',
+  teal: 'bg-teal-50 text-teal-600',
+};
+
+const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent = 'neutral' }) => (
   <div className="rounded-xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70">
     <div className="mb-1.5 flex items-center justify-between gap-2">
-      <p className="text-xs font-semibold text-gray-500">{title}</p>
+      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+        {icon ? (
+          <span
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
+              overviewIconClasses[accent] ?? overviewIconClasses.neutral
+            }`}
+            aria-hidden="true"
+          >
+            <OverviewSensorIcon name={icon} />
+          </span>
+        ) : null}
+        {title}
+      </p>
       <p className="text-xs font-semibold text-gray-950">
         {data.at(-1)?.[dataKey] ?? '--'}
         {unit}
@@ -2213,42 +2302,29 @@ const App = () => {
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
-                        <div>
-                          <p className="text-gray-500">{t.status}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {online ? t.online : t.offline}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">{t.temperature}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {latest?.temperature ?? '--'} C
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">{t.humidity}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {latest?.humidity ?? '--'}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">{t.light}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {latest?.lightPercent ?? '--'}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">{t.co2}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {latest?.eco2 ?? '--'} ppm
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">{t.tvoc}</p>
-                          <p className="mt-1 font-semibold text-gray-950">
-                            {latest?.tvoc ?? '--'} ppb
-                          </p>
-                        </div>
+                        {[
+                          [t.status, online ? t.online : t.offline, 'status', online ? 'green' : 'neutral'],
+                          [t.temperature, `${latest?.temperature ?? '--'} C`, 'temperature', 'blue'],
+                          [t.humidity, `${latest?.humidity ?? '--'}%`, 'humidity', 'green'],
+                          [t.light, `${latest?.lightPercent ?? '--'}%`, 'light', 'amber'],
+                          [t.co2, `${latest?.eco2 ?? '--'} ppm`, 'co2', 'green'],
+                          [t.tvoc, `${latest?.tvoc ?? '--'} ppb`, 'tvoc', 'teal'],
+                        ].map(([label, value, icon, accent]) => (
+                          <div key={label} className="flex items-start gap-2">
+                            <span
+                              className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
+                                overviewIconClasses[accent] ?? overviewIconClasses.neutral
+                              }`}
+                              aria-hidden="true"
+                            >
+                              <OverviewSensorIcon name={icon} />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-gray-500">{label}</p>
+                              <p className="mt-0.5 truncate font-semibold text-gray-950">{value}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-2.5">
@@ -2258,6 +2334,8 @@ const App = () => {
                           dataKey="temperature"
                           color="#2563eb"
                           unit=" C"
+                          icon="temperature"
+                          accent="blue"
                         />
                         <MiniDeviceChart
                           title={t.humidity}
@@ -2265,6 +2343,8 @@ const App = () => {
                           dataKey="humidity"
                           color="#059669"
                           unit="%"
+                          icon="humidity"
+                          accent="green"
                         />
                         <MiniDeviceChart
                           title={t.light}
@@ -2272,12 +2352,16 @@ const App = () => {
                           dataKey="lightPercent"
                           color="#d97706"
                           unit="%"
+                          icon="light"
+                          accent="amber"
                         />
                         <MiniDeviceChart
                           title={t.motion}
                           data={miniData}
                           dataKey="motion"
                           color="#dc2626"
+                          icon="motion"
+                          accent="red"
                         />
                         <MiniDeviceChart
                           title={t.co2}
@@ -2285,6 +2369,8 @@ const App = () => {
                           dataKey="eco2"
                           color="#10b981"
                           unit=" ppm"
+                          icon="co2"
+                          accent="green"
                         />
                         <MiniDeviceChart
                           title={t.tvoc}
@@ -2292,6 +2378,8 @@ const App = () => {
                           dataKey="tvoc"
                           color="#0f766e"
                           unit=" ppb"
+                          icon="tvoc"
+                          accent="teal"
                         />
                       </div>
 
@@ -2457,10 +2545,14 @@ const App = () => {
           />
           <MetricCard
             label={t.wifiSignal}
-            value={t[wifiSignalStatus.labelKey] ?? wifiSignalStatus.label}
-            helper={latestReading?.rssi ? `${latestReading.rssi} dBm` : t.rssiSubtitle}
+            value={isOnline ? (t[wifiSignalStatus.labelKey] ?? wifiSignalStatus.label) : t.offline}
+            helper={
+              latestReading?.rssi
+                ? `${latestReading.rssi} dBm · ${isOnline ? t.rssiSubtitle : t.lastKnownSignal}`
+                : t.rssiSubtitle
+            }
             icon="wifi"
-            accent={wifiSignalStatus.accent}
+            accent={isOnline ? wifiSignalStatus.accent : 'neutral'}
             isLoading={loading.latest}
             compact
           />
