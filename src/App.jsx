@@ -793,7 +793,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
   const authTitle = mode === 'login' ? labels.loginTitle : labels.registerTitle;
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+    <main className="min-h-screen px-3 py-4 sm:px-6 lg:px-8">
       <section className="mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-6xl items-center gap-5 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-stretch lg:content-center">
         <div className="hidden lg:block">
           <div className="glass-card relative flex h-full flex-col overflow-hidden rounded-[32px] p-6">
@@ -866,13 +866,13 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
           </div>
         </div>
 
-        <section className="glass-card flex h-full w-full flex-col justify-center rounded-[30px] p-5 shadow-glass sm:p-6">
+        <section className="glass-card flex w-full flex-col justify-center rounded-[24px] p-4 shadow-glass sm:rounded-[30px] sm:p-6 lg:h-full">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {labels.title}
               </p>
-              <h1 className="mt-2 text-3xl font-semibold text-gray-950">{authTitle}</h1>
+              <h1 className="mt-2 text-2xl font-semibold text-gray-950 sm:text-3xl">{authTitle}</h1>
             </div>
             <div className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200">
               {[
@@ -1230,20 +1230,20 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
 
   return (
     <section className="space-y-4">
-      <div className="glass-card rounded-[20px] p-4">
+      <div className="glass-card rounded-[18px] p-3 sm:rounded-[20px] sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-950">{labels.userManagement}</h2>
             <p className="mt-0.5 text-xs text-gray-500">{labels.userManagementSubtitle}</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[330px]">
+          <div className="grid grid-cols-3 gap-2 lg:min-w-[330px]">
             <AdminSummaryCard label={labels.activeUsers} value={adminStats.active} accent="green" />
             <AdminSummaryCard label={labels.invitedUsers} value={adminStats.invited} accent="blue" />
             <AdminSummaryCard label={labels.adminUsers} value={adminStats.admins} accent="amber" />
           </div>
         </div>
 
-        <form className="mt-4 rounded-[18px] bg-white/55 p-3 ring-1 ring-gray-200/70" onSubmit={createDashboardUser}>
+        <form className="mt-3 rounded-[16px] bg-white/55 p-2.5 ring-1 ring-gray-200/70 sm:mt-4 sm:rounded-[18px] sm:p-3" onSubmit={createDashboardUser}>
           <div className="mb-3 flex flex-col gap-0.5">
             <p className="text-sm font-semibold text-gray-950">{labels.inviteUser}</p>
             <p className="text-xs text-gray-500">{labels.inviteUserSubtitle}</p>
@@ -1343,7 +1343,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
         {error ? <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       </div>
 
-      <div className="glass-card rounded-[20px] p-4">
+      <div className="glass-card rounded-[18px] p-3 sm:rounded-[20px] sm:p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-gray-950">{labels.users}</h3>
           <label className="relative block sm:w-64">
@@ -1916,7 +1916,7 @@ const App = () => {
   }
 
   return (
-    <main className="min-h-screen px-3 py-4 sm:px-4 lg:px-5">
+    <main className="min-h-screen px-2.5 py-3 sm:px-4 sm:py-4 lg:px-5">
       <div
         className={`grid w-full gap-4 ${
           isSidebarCollapsed
@@ -2033,11 +2033,11 @@ const App = () => {
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-5 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
+        <header className="mb-4 grid gap-3 sm:mb-5 sm:gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
           <div className={activeSection === 'admin' ? 'xl:mt-3' : 'xl:mt-12'}>
             <h1
               className={`font-semibold tracking-normal text-gray-950 ${
-                activeSection === 'admin' ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'
+                activeSection === 'admin' ? 'text-xl sm:text-3xl' : 'text-2xl sm:text-4xl'
               }`}
             >
               {t.title}
@@ -2048,7 +2048,7 @@ const App = () => {
               activeSection === 'admin' ? 'xl:mt-2' : 'xl:mt-12'
             }`}
           >
-            <div className="inline-flex items-center justify-end gap-2 rounded-2xl bg-white/75 px-2.5 py-1.5 text-[11px] font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200">
+            <div className="inline-flex items-center justify-end gap-2 rounded-2xl bg-white/75 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-[11px]">
               <span
                 className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-700"
                 aria-hidden="true"
@@ -2057,7 +2057,7 @@ const App = () => {
               </span>
               <div className="min-w-0 text-right">
                 <p>{t.signedInAs}</p>
-                <p className="mt-0.5 max-w-[200px] truncate text-gray-950">
+                <p className="mt-0.5 max-w-[170px] truncate text-gray-950 sm:max-w-[200px]">
                   {currentUserProfile?.email ?? currentUser.email}
                 </p>
               </div>
@@ -2086,7 +2086,7 @@ const App = () => {
             </div>
             <div className="flex flex-col items-stretch gap-2.5 lg:flex-row lg:items-center">
               {activeSection === 'devices' ? (
-                <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end lg:self-center">
+                <div className="glass-card flex flex-col gap-2 rounded-[16px] p-2 sm:flex-row sm:items-end sm:rounded-[18px] sm:p-2.5 lg:self-center">
                   <div className="flex items-center gap-2 px-1 sm:self-center">
                     <span
                       className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
@@ -2143,7 +2143,7 @@ const App = () => {
                   </button>
                 </div>
               ) : null}
-              <div className="flex min-w-[244px] flex-col gap-2.5">
+              <div className="flex min-w-0 flex-col gap-2.5 sm:min-w-[244px]">
                 <div
                   className="flex w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
                   aria-label={t.languageLabel}
@@ -2301,10 +2301,10 @@ const App = () => {
           <AdminPanel labels={t} users={users} currentUserProfile={currentUserProfile} />
         ) : activeSection === 'overview' ? (
           <section className="space-y-4">
-            <div className="glass-card rounded-[24px] p-4 sm:p-5">
+            <div className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-950">{t.allDevices}</h2>
+                  <h2 className="text-lg font-semibold text-gray-950 sm:text-xl">{t.allDevices}</h2>
                   <p className="mt-1 text-xs text-gray-500">{t.deviceOverviewSubtitle}</p>
                 </div>
                 <div className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
@@ -2319,7 +2319,7 @@ const App = () => {
               ) : null}
             </div>
 
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <section className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
               {overviewDevices.length > 0 ? (
                 overviewDevices.map((device) => {
                   const latest = device.latest;
@@ -2330,7 +2330,7 @@ const App = () => {
                       key={device.id}
                       type="button"
                       onClick={() => openDevice(device.id)}
-                      className="glass-card rounded-[22px] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:shadow-glass"
+                      className="glass-card rounded-[20px] p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:rounded-[22px] sm:p-4"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-2.5">
@@ -2452,7 +2452,7 @@ const App = () => {
           </section>
         ) : (
           <>
-        <section className="glass-card mb-5 rounded-[24px] p-4">
+        <section className="glass-card mb-4 rounded-[20px] p-3 sm:mb-5 sm:rounded-[24px] sm:p-4">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_minmax(230px,auto)] md:items-stretch">
             <div className="flex min-h-[72px] items-center gap-3 rounded-xl bg-white/70 px-3.5 py-2.5 shadow-sm ring-1 ring-gray-200">
               <span
@@ -2532,7 +2532,7 @@ const App = () => {
           </section>
         ) : null}
 
-        <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
+        <section className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
           <MetricCard
             label={t.status}
             value={isOnline ? t.online : t.offline}
@@ -2611,7 +2611,7 @@ const App = () => {
           />
         </section>
 
-        <section className="mt-5 space-y-4">
+        <section className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
           <AirQualityPanel
             labels={t}
             eco2={latestReading?.eco2}
@@ -2623,7 +2623,7 @@ const App = () => {
             isLoading={loading.latest}
           />
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
             <SensorChart
               title={t.co2}
               subtitle={t.co2SubtitleChart}
@@ -2649,7 +2649,7 @@ const App = () => {
           </div>
         </section>
 
-        <section className="mt-5 grid gap-4 lg:grid-cols-2">
+        <section className="mt-4 grid gap-3 sm:mt-5 sm:gap-4 lg:grid-cols-2">
           <SensorChart
             title={t.temperature}
             subtitle={t.temperatureSubtitle}
@@ -2696,7 +2696,7 @@ const App = () => {
           />
         </section>
 
-        <section className="glass-card mt-5 rounded-[24px] p-4 sm:p-5">
+        <section className="glass-card mt-4 rounded-[20px] p-3 sm:mt-5 sm:rounded-[24px] sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-gray-950">{t.recentReadings}</h2>

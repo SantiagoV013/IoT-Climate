@@ -34,7 +34,7 @@ const MetricCard = ({
       : 'text-lg sm:text-xl';
 
   return (
-    <article className="glass-card subtle-ring min-h-[88px] rounded-2xl p-2.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass">
+    <article className="glass-card subtle-ring min-h-[76px] rounded-2xl p-2 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:min-h-[88px] sm:p-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-semibold text-gray-500">{label}</p>
@@ -54,7 +54,7 @@ const MetricCard = ({
         <div className="flex items-center gap-1">
           {icon ? (
             <span
-              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${iconClasses[accent]}`}
+              className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-lg sm:h-6 sm:w-6 ${iconClasses[accent]}`}
               aria-hidden="true"
             >
               <MetricIcon name={icon} />
@@ -63,7 +63,7 @@ const MetricCard = ({
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${accentClasses[accent]}`} />
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:mt-2">
         {helper ? <p className="line-clamp-2 text-[10px] leading-snug text-gray-500">{helper}</p> : null}
         {badge ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">

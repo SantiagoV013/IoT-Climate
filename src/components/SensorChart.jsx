@@ -43,15 +43,15 @@ const SensorChart = ({
   const Chart = type === 'line' ? LineChart : AreaChart;
 
   return (
-    <section className="glass-card rounded-[24px] p-4 sm:p-5">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <section className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-5">
+      <div className="mb-3 flex items-start justify-between gap-4 sm:mb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-950">{title}</h2>
+          <h2 className="text-sm font-semibold text-gray-950 sm:text-base">{title}</h2>
           {subtitle ? <p className="mt-1 text-xs text-gray-500">{subtitle}</p> : null}
         </div>
       </div>
 
-      <div className="h-60 w-full">
+      <div className="h-48 w-full sm:h-60">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <Chart data={data} margin={{ top: 8, right: 16, left: 6, bottom: 4 }}>

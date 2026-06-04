@@ -91,17 +91,17 @@ const AirQualityPanel = ({
   ];
 
   return (
-    <section className="glass-card rounded-[24px] p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-5">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-2.5">
           <span
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 sm:h-8 sm:w-8"
             aria-hidden="true"
           >
             <AirQualityIcon name="air" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-gray-950">{labels.airQualityAnalytics}</h2>
+            <h2 className="text-base font-semibold text-gray-950 sm:text-lg">{labels.airQualityAnalytics}</h2>
             <p className="mt-1 text-xs text-gray-500">{labels.airQualitySubtitle}</p>
           </div>
         </div>
@@ -114,9 +114,9 @@ const AirQualityPanel = ({
         </span>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:mt-4 md:grid-cols-4 md:gap-3">
         {cards.map(({ label, value, unit, helper, icon, accent }) => (
-          <div key={label} className="rounded-[18px] bg-white/65 p-3 shadow-sm ring-1 ring-gray-200/70">
+          <div key={label} className="rounded-2xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70 sm:p-3">
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-semibold text-gray-500">{label}</p>
               <span
