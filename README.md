@@ -84,6 +84,29 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
+VITE_ADMIN_EMAILS=admin@example.com
+```
+
+`VITE_ADMIN_EMAILS` is a comma-separated list. The first account created or signed in with one of those emails becomes an app admin profile in `/users/{uid}`.
+
+Admins can approve Google-only users from the Admin panel by entering the user's email and role, then leaving the password field empty. If a password is entered, the app also creates an email/password Firebase Auth account for that user.
+
+Realtime Database keys cannot contain dots. For allowed providers, use `google_com` instead of `google.com`:
+
+```json
+{
+  "allowedUsers": {
+    "vos_priority@gmail_com": {
+      "email": "vos.priority@gmail.com",
+      "role": "admin",
+      "enabled": true,
+      "allowedProviders": {
+        "google_com": true,
+        "password": true
+      }
+    }
+  }
+}
 ```
 
 Start the development server:
@@ -98,17 +121,56 @@ Build for production:
 npm run build
 ```
 
+## Deploy to Vercel
+
+This project includes `vercel.json` for Vercel hosting.
+
+In Vercel, set the same Firebase environment variables from `.env.example`, then deploy from GitHub.
+
+More details are in [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+## Database Recommendation
+
+The easiest production database path is to keep using **Firebase Realtime Database** because the dashboard already depends on realtime listeners.
+
+MongoDB Atlas is useful later for long-term analytics or advanced historical queries, but it requires server-side API routes. Do not connect MongoDB directly from React because MongoDB credentials would be exposed in the browser.
+
 ## Firebase Notes
 
 Do not commit `.env.local`. Firebase credentials are read by `src/firebase.js` from Vite environment variables and are intentionally not hardcoded.
+
+Enable Firebase Auth providers before using the login screen:
+
+- **Firebase Authentication > Sign-in method > Email/Password**
+- **Firebase Authentication > Sign-in method > Google**
+
+If you see `Firebase: Error (auth/configuration-not-found)`, check:
+
+- Firebase Console > Authentication is enabled for this project.
+- Firebase Console > Authentication > Sign-in method > Email/Password is enabled.
+- Firebase Console > Authentication > Sign-in method > Google is enabled if you use Google login.
+- Firebase Console > Authentication > Settings > Authorized domains includes your local/dev/deploy domain.
+- `.env.local` values come from the same Firebase Web App as your Realtime Database.
+- `VITE_FIREBASE_AUTH_DOMAIN` usually looks like `your-project-id.firebaseapp.com`.
 
 The device selector reads `/devices` to discover available device IDs. Your rules must allow that list read. Example development rules:
 
 ```json
 {
   "rules": {
+    "allowedUsers": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
     "devices": {
-      ".read": true,
+      ".read": "auth != null && root.child('users').child(auth.uid).child('enabled').val() === true && root.child('users').child(auth.uid).child('disabled').val() !== true",
       "$deviceId": {
         "latest": {
           ".write": "newData.child('deviceToken').val() === 'iot_esp32_secret_2026'"

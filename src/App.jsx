@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { get, onValue, ref } from 'firebase/database';
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import { get, onValue, ref, set, update } from 'firebase/database';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
 import AirQualityPanel from './components/AirQualityPanel.jsx';
 import MetricCard from './components/MetricCard.jsx';
 import ReadingsTable from './components/ReadingsTable.jsx';
 import SensorChart from './components/SensorChart.jsx';
-import { database, firebaseConfigError } from './firebase.js';
+import { auth, database, firebaseApiKey, firebaseConfigError } from './firebase.js';
 import { getAirQualityStatus, getCo2Accent, getTrend, getWifiSignalStatus } from './utils/airQuality.js';
 import { downloadReadingsCsv } from './utils/csvExport.js';
 import { formatRelativeTime, formatTimestamp, getTimestampMs } from './utils/timestamps.js';
@@ -15,6 +23,10 @@ const DEVICES_PATH = '/devices';
 const ONLINE_WINDOW_MS = 60 * 1000;
 const LANGUAGE_STORAGE_KEY = 'environment-monitor-language';
 const DEVICE_STORAGE_KEY = 'environment-monitor-device';
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 const translations = {
   en: {
@@ -27,6 +39,30 @@ const translations = {
     subtitle: 'Live ESP32 sensor telemetry',
     overview: 'Overview',
     devices: 'Devices',
+    admin: 'Admin',
+    users: 'Users',
+    signOut: 'Sign out',
+    signedInAs: 'Signed in as',
+    loginTitle: 'Sign in',
+    registerTitle: 'Create account',
+    continueWithGoogle: 'Continue with Google',
+    orUseEmail: 'or use email',
+    email: 'Email',
+    password: 'Password',
+    displayName: 'Name',
+    role: 'Role',
+    viewer: 'Viewer',
+    manager: 'Manager',
+    createUser: 'Create user',
+    allowGoogle: 'Google',
+    allowPassword: 'Password',
+    providerAccess: 'Sign-in methods',
+    userManagement: 'User Management',
+    userManagementSubtitle: 'Create dashboard users and manage access roles',
+    noUsers: 'No users found',
+    disabled: 'Disabled',
+    enabled: 'Enabled',
+    save: 'Save',
     allDevices: 'All devices',
     deviceOverviewSubtitle: 'Connected ESP32 telemetry nodes',
     downloadCsv: 'Download CSV',
@@ -122,6 +158,30 @@ const translations = {
     subtitle: 'Telemetría en vivo del sensor ESP32',
     overview: 'Resumen',
     devices: 'Dispositivos',
+    admin: 'Admin',
+    users: 'Usuarios',
+    signOut: 'Cerrar sesion',
+    signedInAs: 'Sesion iniciada como',
+    loginTitle: 'Iniciar sesion',
+    registerTitle: 'Crear cuenta',
+    continueWithGoogle: 'Continuar con Google',
+    orUseEmail: 'o usa correo',
+    email: 'Correo',
+    password: 'Contrasena',
+    displayName: 'Nombre',
+    role: 'Rol',
+    viewer: 'Visualizador',
+    manager: 'Manager',
+    createUser: 'Crear usuario',
+    allowGoogle: 'Google',
+    allowPassword: 'Contrasena',
+    providerAccess: 'Metodos de acceso',
+    userManagement: 'Gestion de usuarios',
+    userManagementSubtitle: 'Crea usuarios del panel y administra roles de acceso',
+    noUsers: 'No hay usuarios',
+    disabled: 'Deshabilitado',
+    enabled: 'Habilitado',
+    save: 'Guardar',
     allDevices: 'Todos los dispositivos',
     deviceOverviewSubtitle: 'Nodos ESP32 de telemetría conectados',
     downloadCsv: 'Descargar CSV',
@@ -251,9 +311,75 @@ const getDateInputMs = (value, endOfDay = false) => {
   return date.getTime();
 };
 
+const getEmailKey = (email) => email.toLowerCase().replace(/[.#$/[\]]/g, '_');
+
+const getProviderKey = (providerId) => providerId.replace(/[.#$/[\]]/g, '_');
+
+const mergeAdminUsers = (userRecords = [], allowedRecords = []) => {
+  const usersByEmail = new Map();
+
+  userRecords.forEach((user) => {
+    const email = user.email?.toLowerCase();
+    if (!email) return;
+    usersByEmail.set(email, {
+      ...user,
+      email,
+      allowedKey: getEmailKey(email),
+    });
+  });
+
+  allowedRecords.forEach(([allowedKey, allowedUser]) => {
+    const email = allowedUser.email?.toLowerCase();
+    if (!email) return;
+
+    const existingUser = usersByEmail.get(email);
+    usersByEmail.set(email, {
+      ...allowedUser,
+      ...existingUser,
+      email,
+      allowedKey,
+      role: existingUser?.role ?? allowedUser.role ?? 'viewer',
+      disabled: Boolean(existingUser?.disabled ?? allowedUser.disabled),
+      enabled: existingUser?.enabled ?? allowedUser.enabled ?? true,
+      displayName: existingUser?.displayName ?? allowedUser.displayName ?? email,
+      providers: allowedUser.allowedProviders,
+    });
+  });
+
+  return [...usersByEmail.values()].sort((a, b) =>
+    String(a.email ?? '').localeCompare(String(b.email ?? '')),
+  );
+};
+
 const isReadingOnline = (reading, now = Date.now()) => {
   if (!reading?.time) return false;
   return now - reading.time <= ONLINE_WINDOW_MS;
+};
+
+const formatAuthError = (error) => {
+  const code = error?.code ?? '';
+
+  if (code === 'auth/configuration-not-found') {
+    return 'Firebase Authentication is not configured for this Firebase project. In Firebase Console, enable Authentication, add the Email/Password sign-in provider, and confirm .env.local uses the same Firebase Web App values.';
+  }
+
+  if (code === 'auth/operation-not-allowed') {
+    return 'Email/Password sign-in is not enabled in Firebase Authentication.';
+  }
+
+  if (code === 'auth/api-key-not-valid' || code === 'auth/invalid-api-key') {
+    return 'The Firebase API key in .env.local is invalid or belongs to a different Firebase project.';
+  }
+
+  if (code === 'auth/unauthorized-domain') {
+    return 'This domain is not authorized for Google sign-in. In Firebase Console > Authentication > Settings > Authorized domains, add your local or Vercel domain.';
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-in was closed before it finished.';
+  }
+
+  return error?.message ?? 'Authentication failed.';
 };
 
 const buildMiniHistory = (history) => {
@@ -341,9 +467,466 @@ const SidebarIcon = ({ name }) => {
         <path d="M11 17h2" />
       </svg>
     ),
+    admin: (
+      <svg {...commonProps}>
+        <path d="M12 3 5 6v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />
+        <path d="M9.5 12.5 11 14l3.5-4" />
+      </svg>
+    ),
   };
 
   return icons[name] ?? null;
+};
+
+const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAccessError }) => {
+  const [mode, setMode] = useState('login');
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const signInWithGoogle = async () => {
+    if (!auth) return;
+
+    setError(null);
+    onClearAccessError();
+    setIsSubmitting(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
+    } catch (authError) {
+      setError(formatAuthError(authError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitAuth = async (event) => {
+    event.preventDefault();
+    if (!auth || !database) return;
+
+    setError(null);
+    onClearAccessError();
+    setIsSubmitting(true);
+
+    try {
+      if (mode === 'register') {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const normalizedEmail = credential.user.email?.toLowerCase() ?? email.toLowerCase();
+        const role = ADMIN_EMAILS.includes(normalizedEmail) ? 'admin' : 'viewer';
+
+        await set(ref(database, `/users/${credential.user.uid}`), {
+          uid: credential.user.uid,
+          email: normalizedEmail,
+          displayName: displayName || normalizedEmail,
+          role,
+          disabled: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (authError) {
+      setError(formatAuthError(authError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="flex min-h-screen items-center justify-center px-4 py-8">
+      <section className="glass-card w-full max-w-md rounded-[28px] p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {labels.title}
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-gray-950">
+              {mode === 'login' ? labels.loginTitle : labels.registerTitle}
+            </h1>
+          </div>
+          <div className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200">
+            {[
+              ['en', labels.english],
+              ['es', labels.spanish],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onLanguageChange(value)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  language === value ? 'bg-gray-950 text-white' : 'text-gray-500'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={signInWithGoogle}
+          disabled={isSubmitting}
+          className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:text-gray-400"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.53 7.7 23 12 23Z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 4 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"
+            />
+          </svg>
+          {labels.continueWithGoogle}
+        </button>
+
+        <div className="mb-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-semibold text-gray-400">{labels.orUseEmail}</span>
+          <span className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <form className="space-y-4" onSubmit={submitAuth}>
+          {mode === 'register' ? (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
+                {labels.displayName}
+              </span>
+              <input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+              />
+            </label>
+          ) : null}
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
+              {labels.email}
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
+              {labels.password}
+            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={6}
+              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+            />
+          </label>
+
+          {accessError ? (
+            <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-700">{accessError}</p>
+          ) : null}
+          {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-full bg-gray-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:bg-gray-800 disabled:bg-gray-300"
+          >
+            {isSubmitting
+              ? labels.loading
+              : mode === 'login'
+                ? labels.loginTitle
+                : labels.registerTitle}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => setMode((current) => (current === 'login' ? 'register' : 'login'))}
+          className="mt-4 w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+        >
+          {mode === 'login' ? labels.registerTitle : labels.loginTitle}
+        </button>
+      </section>
+    </main>
+  );
+};
+
+const createUserWithRestApi = async ({ email, password }) => {
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: false }),
+    },
+  );
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? 'Unable to create user');
+  }
+
+  return payload;
+};
+
+const AdminPanel = ({ labels, users, currentUserProfile }) => {
+  const [newUser, setNewUser] = useState({
+    displayName: '',
+    email: '',
+    password: '',
+    role: 'viewer',
+    allowGoogle: true,
+    allowPassword: false,
+  });
+  const [error, setError] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const createDashboardUser = async (event) => {
+    event.preventDefault();
+    if (!database || currentUserProfile?.role !== 'admin') return;
+
+    setError(null);
+    setIsCreating(true);
+
+    try {
+      if (newUser.allowPassword && !newUser.password) {
+        throw new Error('Password is required when password access is enabled.');
+      }
+
+      if (!newUser.allowGoogle && !newUser.allowPassword) {
+        throw new Error('Select at least one sign-in method.');
+      }
+
+      if (newUser.allowPassword && newUser.password) {
+        const createdUser = await createUserWithRestApi({
+          email: newUser.email,
+          password: newUser.password,
+        });
+
+        await set(ref(database, `/users/${createdUser.localId}`), {
+          uid: createdUser.localId,
+          email: newUser.email.toLowerCase(),
+          displayName: newUser.displayName || newUser.email.toLowerCase(),
+          role: newUser.role,
+          disabled: false,
+          enabled: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+
+      await set(ref(database, `/allowedUsers/${getEmailKey(newUser.email)}`), {
+        email: newUser.email.toLowerCase(),
+        role: newUser.role,
+        enabled: true,
+        disabled: false,
+        allowedProviders: {
+          password: Boolean(newUser.allowPassword),
+          google_com: Boolean(newUser.allowGoogle),
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      setNewUser({
+        displayName: '',
+        email: '',
+        password: '',
+        role: 'viewer',
+        allowGoogle: true,
+        allowPassword: false,
+      });
+    } catch (userError) {
+      setError(formatAuthError(userError));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const updateUserRole = async (user, role) => {
+    const updatedAt = Date.now();
+    const updates = [];
+
+    if (user.uid) {
+      updates.push(update(ref(database, `/users/${user.uid}`), { role, updatedAt }));
+    }
+
+    if (user.allowedKey) {
+      updates.push(update(ref(database, `/allowedUsers/${user.allowedKey}`), { role, updatedAt }));
+    }
+
+    await Promise.all(updates);
+  };
+
+  const updateUserDisabled = async (user, disabled) => {
+    const updatedAt = Date.now();
+    const updates = [];
+
+    if (user.uid) {
+      updates.push(update(ref(database, `/users/${user.uid}`), { disabled, updatedAt }));
+    }
+
+    if (user.allowedKey) {
+      updates.push(update(ref(database, `/allowedUsers/${user.allowedKey}`), { disabled, updatedAt }));
+    }
+
+    await Promise.all(updates);
+  };
+
+  return (
+    <section className="space-y-5">
+      <div className="glass-card rounded-[24px] p-5">
+        <h2 className="text-xl font-semibold text-gray-950">{labels.userManagement}</h2>
+        <p className="mt-1 text-sm text-gray-500">{labels.userManagementSubtitle}</p>
+
+        <form className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_150px_130px_auto]" onSubmit={createDashboardUser}>
+          <input
+            placeholder={labels.displayName}
+            value={newUser.displayName}
+            onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
+            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+          />
+          <input
+            type="email"
+            placeholder={labels.email}
+            value={newUser.email}
+            required
+            onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
+            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+          />
+          <input
+            type="password"
+            placeholder={labels.password}
+            value={newUser.password}
+            minLength={6}
+            disabled={!newUser.allowPassword}
+            onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
+            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none transition focus:ring-4 focus:ring-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+          />
+          <select
+            value={newUser.role}
+            onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
+            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+          >
+            <option value="viewer">{labels.viewer}</option>
+            <option value="manager">{labels.manager}</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button
+            type="submit"
+            disabled={isCreating}
+            className="rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white disabled:bg-gray-300"
+          >
+            {isCreating ? labels.loading : labels.createUser}
+          </button>
+          <div className="lg:col-span-5 rounded-2xl bg-white/60 p-3 ring-1 ring-gray-200/70">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">{labels.providerAccess}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[
+                ['allowGoogle', labels.allowGoogle],
+                ['allowPassword', labels.allowPassword],
+              ].map(([key, label]) => {
+                const isActive = newUser[key];
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      setNewUser((current) => ({
+                        ...current,
+                        [key]: !current[key],
+                        password: key === 'allowPassword' && current.allowPassword ? '' : current.password,
+                      }))
+                    }
+                    className={`rounded-full px-4 py-2 text-xs font-bold transition ${
+                      isActive
+                        ? 'bg-gray-950 text-white shadow-sm'
+                        : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:text-gray-950'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </form>
+        {error ? <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      </div>
+
+      <div className="glass-card rounded-[24px] p-5">
+        <h3 className="text-base font-semibold text-gray-950">{labels.users}</h3>
+        <div className="mt-4 overflow-hidden rounded-[20px] bg-white/55 ring-1 ring-gray-200/70">
+          {users.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200/70 text-left text-sm">
+                <thead className="bg-white/60 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3">{labels.displayName}</th>
+                    <th className="px-4 py-3">{labels.email}</th>
+                    <th className="px-4 py-3">{labels.role}</th>
+                    <th className="px-4 py-3">{labels.status}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {users.map((user) => (
+                    <tr key={user.uid ?? user.allowedKey}>
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-950">
+                        {user.displayName ?? '--'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-600">{user.email}</td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <select
+                          value={user.role ?? 'viewer'}
+                          onChange={(event) => updateUserRole(user, event.target.value)}
+                          className="rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold"
+                        >
+                          <option value="viewer">{labels.viewer}</option>
+                          <option value="manager">{labels.manager}</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => updateUserDisabled(user, !user.disabled)}
+                          className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200"
+                        >
+                          {user.disabled ? labels.disabled : labels.enabled}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="p-8 text-center text-sm text-gray-500">{labels.noUsers}</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 };
 
 const App = () => {
@@ -353,6 +936,11 @@ const App = () => {
   const [deviceSummaries, setDeviceSummaries] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(getInitialDevice);
   const [activeSection, setActiveSection] = useState('overview');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authAccessError, setAuthAccessError] = useState(null);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState({ devices: true, latest: true, history: true });
   const [error, setError] = useState(null);
   const [deviceDiscoveryError, setDeviceDiscoveryError] = useState(null);
@@ -453,9 +1041,143 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+      if (!user) {
+        setCurrentUserProfile(null);
+        setUsers([]);
+        setLoading({ devices: false, latest: false, history: false });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!database || !currentUser) return undefined;
+
+    const userRef = ref(database, `/users/${currentUser.uid}`);
+    const unsubscribeUser = onValue(
+      userRef,
+      async (snapshot) => {
+        try {
+          const email = currentUser.email?.toLowerCase() ?? '';
+          const providerId = currentUser.providerData[0]?.providerId ?? 'password';
+          const isBootstrapAdmin = ADMIN_EMAILS.includes(email);
+          const allowedSnapshot = await get(ref(database, `/allowedUsers/${getEmailKey(email)}`));
+          const allowedUser = allowedSnapshot.exists() ? allowedSnapshot.val() : null;
+
+          if (!isBootstrapAdmin) {
+            const providerKey = getProviderKey(providerId);
+            const providerAllowed =
+              providerId === 'password'
+                ? allowedUser?.allowedProviders?.password === true
+                : allowedUser?.allowedProviders?.[providerKey] === true;
+
+            if (!allowedUser || allowedUser.enabled !== true || !providerAllowed) {
+              setAuthAccessError(
+                'This account is not approved for dashboard access. Ask an admin to add your email and provider in Allowed Users.',
+              );
+              await signOut(auth);
+              return;
+            }
+          }
+
+          const existingProfile = snapshot.exists() ? snapshot.val() : null;
+          const role = existingProfile?.role ?? (isBootstrapAdmin ? 'admin' : allowedUser?.role ?? 'viewer');
+          const nextProfile = {
+            uid: currentUser.uid,
+            email,
+            displayName: existingProfile?.displayName ?? currentUser.displayName ?? email,
+            role,
+            disabled: Boolean(existingProfile?.disabled ?? allowedUser?.disabled),
+            enabled: isBootstrapAdmin ? true : allowedUser?.enabled === true,
+            providerId,
+            createdAt: existingProfile?.createdAt ?? Date.now(),
+            updatedAt: Date.now(),
+          };
+
+          if (isBootstrapAdmin && !allowedUser) {
+            await set(ref(database, `/allowedUsers/${getEmailKey(email)}`), {
+              email,
+              role: 'admin',
+              enabled: true,
+              disabled: false,
+              allowedProviders: {
+                password: true,
+                google_com: true,
+              },
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+          }
+
+          if (!existingProfile) {
+            await set(userRef, nextProfile);
+          }
+
+          setCurrentUserProfile({ ...existingProfile, ...nextProfile });
+
+          if (nextProfile.disabled) {
+            await signOut(auth);
+          }
+        } catch (profileError) {
+          setAuthAccessError(`Unable to load your user access profile: ${profileError.message}`);
+          setCurrentUserProfile(null);
+          setLoading({ devices: false, latest: false, history: false });
+        }
+      },
+      (profileError) => {
+        setAuthAccessError(`Unable to read your user profile: ${profileError.message}`);
+        setCurrentUserProfile(null);
+        setLoading({ devices: false, latest: false, history: false });
+      },
+    );
+
+    return () => unsubscribeUser();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!database || currentUserProfile?.role !== 'admin') {
+      setUsers([]);
+      return undefined;
+    }
+
+    let userRecords = [];
+    let allowedRecords = [];
+
+    const updateAdminUsers = () => {
+      setUsers(mergeAdminUsers(userRecords, allowedRecords));
+    };
+
+    const unsubscribeUsers = onValue(ref(database, '/users'), (snapshot) => {
+      userRecords = snapshot.exists() ? Object.values(snapshot.val()) : [];
+      updateAdminUsers();
+    });
+
+    const unsubscribeAllowedUsers = onValue(ref(database, '/allowedUsers'), (snapshot) => {
+      allowedRecords = snapshot.exists() ? Object.entries(snapshot.val()) : [];
+      updateAdminUsers();
+    });
+
+    return () => {
+      unsubscribeUsers();
+      unsubscribeAllowedUsers();
+    };
+  }, [currentUserProfile?.role]);
+
+  useEffect(() => {
     if (!database) {
       setError(firebaseConfigError);
       setLoading({ devices: false, latest: false, history: false });
+      return undefined;
+    }
+
+    if (!currentUser || !currentUserProfile) {
       return undefined;
     }
 
@@ -501,10 +1223,10 @@ const App = () => {
     return () => {
       unsubscribeDevices();
     };
-  }, [selectedDeviceId]);
+  }, [currentUser, currentUserProfile, selectedDeviceId]);
 
   useEffect(() => {
-    if (!database || !selectedDeviceId) {
+    if (!database || !selectedDeviceId || !currentUser || !currentUserProfile) {
       return undefined;
     }
 
@@ -572,7 +1294,7 @@ const App = () => {
       unsubscribeLatest();
       unsubscribeHistory();
     };
-  }, [selectedDeviceId]);
+  }, [currentUser, currentUserProfile, selectedDeviceId]);
 
   const filteredHistory = useMemo(() => {
     const fromMs = getDateInputMs(viewFrom);
@@ -621,7 +1343,48 @@ const App = () => {
   const navItems = [
     ['overview', t.overview, 'overview'],
     ['devices', t.devices, 'devices'],
+    ...(currentUserProfile?.role === 'admin' ? [['admin', t.admin, 'admin']] : []),
   ];
+
+  if (authLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 text-sm font-semibold text-gray-500">
+        {t.loading}
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        labels={t}
+        language={language}
+        onLanguageChange={updateLanguage}
+        accessError={authAccessError}
+        onClearAccessError={() => setAuthAccessError(null)}
+      />
+    );
+  }
+
+  if (!currentUserProfile) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 py-8">
+        <section className="glass-card max-w-lg rounded-[28px] p-6 text-center">
+          <h1 className="text-xl font-semibold text-gray-950">{t.title}</h1>
+          <p className="mt-3 text-sm text-gray-500">
+            {authAccessError ?? 'Loading your user access profile...'}
+          </p>
+          <button
+            type="button"
+            onClick={() => signOut(auth)}
+            className="mt-5 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            {t.signOut}
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen px-3 py-4 sm:px-4 lg:px-5">
@@ -736,81 +1499,128 @@ const App = () => {
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-6 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-start">
+        <header className="mb-6 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
           <div className="xl:mt-12">
             <h1 className="text-3xl font-semibold tracking-normal text-gray-950 sm:text-4xl">
               {t.title}
             </h1>
           </div>
-          {activeSection === 'devices' ? (
-            <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end xl:mt-12 xl:justify-self-center">
-              <div className="flex items-center gap-2 px-1 sm:self-center">
-                <span
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
-                  aria-hidden="true"
+          <div className="flex flex-col items-stretch gap-2.5 xl:mt-12 xl:items-end">
+            <div className="inline-flex items-center justify-end gap-3 rounded-[18px] bg-white/75 px-3 py-2 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200">
+              <span
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                aria-hidden="true"
+              >
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M8 2v4" />
-                    <path d="M16 2v4" />
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M3 10h18" />
-                  </svg>
-                </span>
-                <p className="text-xs font-semibold text-gray-500">{t.dateRange}</p>
+                  <path d="M20 21a8 8 0 0 0-16 0" />
+                  <circle cx="12" cy="8" r="4" />
+                </svg>
+              </span>
+              <div className="min-w-0 text-right">
+                <p>{t.signedInAs}</p>
+                <p className="mt-0.5 max-w-[220px] truncate text-gray-950">
+                  {currentUserProfile?.email ?? currentUser.email}
+                </p>
               </div>
-              <label className="block">
-                <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
-                  {t.dateFrom}
-                </span>
-                <input
-                  type="date"
-                  value={viewFrom}
-                  onChange={(event) => setViewFrom(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
-                  {t.dateTo}
-                </span>
-                <input
-                  type="date"
-                  value={viewTo}
-                  onChange={(event) => setViewTo(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
-                />
-              </label>
               <button
                 type="button"
-                onClick={() => {
-                  setViewFrom('');
-                  setViewTo('');
-                }}
-                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                onClick={() => signOut(auth)}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                aria-label={t.signOut}
+                title={t.signOut}
               >
-                {t.clearDates}
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="m16 17 5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
               </button>
             </div>
-          ) : (
-            <div className="hidden xl:block" />
-          )}
-          <div className="flex flex-col items-stretch gap-2.5 xl:mt-12">
-            <div
-              className="flex w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
-              aria-label={t.languageLabel}
-            >
-              {[
-                ['en', t.english],
-                ['es', t.spanish],
-              ].map(([value, label]) => (
+            <div className="flex flex-col items-stretch gap-2.5 lg:flex-row lg:items-start">
+              {activeSection === 'devices' ? (
+                <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end">
+                  <div className="flex items-center gap-2 px-1 sm:self-center">
+                    <span
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M8 2v4" />
+                        <path d="M16 2v4" />
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M3 10h18" />
+                      </svg>
+                    </span>
+                    <p className="text-xs font-semibold text-gray-500">{t.dateRange}</p>
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
+                      {t.dateFrom}
+                    </span>
+                    <input
+                      type="date"
+                      value={viewFrom}
+                      onChange={(event) => setViewFrom(event.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
+                      {t.dateTo}
+                    </span>
+                    <input
+                      type="date"
+                      value={viewTo}
+                      onChange={(event) => setViewTo(event.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewFrom('');
+                      setViewTo('');
+                    }}
+                    className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                  >
+                    {t.clearDates}
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex min-w-[244px] flex-col gap-2.5">
+                <div
+                  className="flex w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
+                  aria-label={t.languageLabel}
+                >
+                  {[
+                    ['en', t.english],
+                    ['es', t.spanish],
+                  ].map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -841,8 +1651,8 @@ const App = () => {
                     {label}
                   </span>
                 </button>
-              ))}
-            </div>
+                  ))}
+                </div>
             <div className="relative w-full">
               <button
                 type="button"
@@ -954,7 +1764,9 @@ const App = () => {
           </section>
         ) : null}
 
-        {activeSection === 'overview' ? (
+        {activeSection === 'admin' && currentUserProfile?.role === 'admin' ? (
+          <AdminPanel labels={t} users={users} currentUserProfile={currentUserProfile} />
+        ) : activeSection === 'overview' ? (
           <section className="space-y-4">
             <div className="glass-card rounded-[24px] p-4 sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

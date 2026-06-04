@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
@@ -22,3 +23,5 @@ export const firebaseConfigError =
 const app = firebaseConfigError ? null : initializeApp(firebaseConfig);
 
 export const database = app ? getDatabase(app) : null;
+export const auth = app ? getAuth(app) : null;
+export const firebaseApiKey = firebaseConfig.apiKey;
