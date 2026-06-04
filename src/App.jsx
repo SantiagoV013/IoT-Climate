@@ -54,12 +54,26 @@ const translations = {
     viewer: 'Viewer',
     manager: 'Manager',
     createUser: 'Create user',
+    inviteUser: 'Invite user',
+    inviteUserSubtitle: 'Approve an email for Google access, password access, or both.',
     allowGoogle: 'Google',
     allowPassword: 'Password',
     providerAccess: 'Sign-in methods',
     userManagement: 'User Management',
     userManagementSubtitle: 'Create dashboard users and manage access roles',
     noUsers: 'No users found',
+    searchUsers: 'Search users',
+    activeUsers: 'Active users',
+    invitedUsers: 'Invited users',
+    adminUsers: 'Admins',
+    access: 'Access',
+    accountState: 'Account state',
+    lastActivity: 'Last activity',
+    invited: 'Invited',
+    signedIn: 'Signed in',
+    emailPassword: 'Password',
+    noProviders: 'No providers',
+    accessKey: 'Access key',
     disabled: 'Disabled',
     enabled: 'Enabled',
     save: 'Save',
@@ -173,12 +187,26 @@ const translations = {
     viewer: 'Visualizador',
     manager: 'Manager',
     createUser: 'Crear usuario',
+    inviteUser: 'Invitar usuario',
+    inviteUserSubtitle: 'Aprueba un correo para acceso con Google, contrasena o ambos.',
     allowGoogle: 'Google',
     allowPassword: 'Contrasena',
     providerAccess: 'Metodos de acceso',
     userManagement: 'Gestion de usuarios',
     userManagementSubtitle: 'Crea usuarios del panel y administra roles de acceso',
     noUsers: 'No hay usuarios',
+    searchUsers: 'Buscar usuarios',
+    activeUsers: 'Usuarios activos',
+    invitedUsers: 'Invitados',
+    adminUsers: 'Admins',
+    access: 'Acceso',
+    accountState: 'Estado de cuenta',
+    lastActivity: 'Ultima actividad',
+    invited: 'Invitado',
+    signedIn: 'Sesion iniciada',
+    emailPassword: 'Contrasena',
+    noProviders: 'Sin metodos',
+    accessKey: 'Clave de acceso',
     disabled: 'Deshabilitado',
     enabled: 'Habilitado',
     save: 'Guardar',
@@ -688,6 +716,105 @@ const createUserWithRestApi = async ({ email, password }) => {
   return payload;
 };
 
+const getUserInitials = (user) => {
+  const source = user.displayName || user.email || '?';
+  return source
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+};
+
+const AdminSummaryCard = ({ label, value, accent = 'gray' }) => {
+  const accentClasses = {
+    gray: 'bg-gray-100 text-gray-700',
+    green: 'bg-emerald-50 text-emerald-700',
+    blue: 'bg-blue-50 text-blue-700',
+    amber: 'bg-amber-50 text-amber-700',
+  };
+
+  return (
+    <div className="rounded-xl bg-white/65 p-3 shadow-sm ring-1 ring-gray-200/70">
+      <div
+        className={`mb-2 inline-flex h-6 w-6 items-center justify-center rounded-lg ${
+          accentClasses[accent] ?? accentClasses.gray
+        }`}
+        aria-hidden="true"
+      >
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M20 21a8 8 0 0 0-16 0" />
+          <circle cx="12" cy="8" r="4" />
+        </svg>
+      </div>
+      <p className="text-lg font-semibold leading-none text-gray-950">{value}</p>
+      <p className="mt-1 text-[11px] font-semibold text-gray-500">{label}</p>
+    </div>
+  );
+};
+
+const ProviderMethodIcon = ({ provider }) => {
+  if (provider === 'google') {
+    return (
+      <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"
+        />
+        <path
+          fill="currentColor"
+          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.53 7.7 23 12 23Z"
+        />
+        <path
+          fill="currentColor"
+          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z"
+        />
+        <path
+          fill="currentColor"
+          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 4 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className="h-3 w-3 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="m10.7 12.3 8-8" />
+      <path d="m15 6 3 3" />
+      <path d="m17 4 3 3" />
+    </svg>
+  );
+};
+
+const ProviderBadge = ({ active, label, provider }) => (
+  <span
+    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+      active ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-400'
+    }`}
+  >
+    <ProviderMethodIcon provider={provider} />
+    {label}
+  </span>
+);
+
 const AdminPanel = ({ labels, users, currentUserProfile }) => {
   const [newUser, setNewUser] = useState({
     displayName: '',
@@ -699,6 +826,27 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
   });
   const [error, setError] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    if (!normalizedSearch) return users;
+
+    return users.filter((user) =>
+      [user.displayName, user.email, user.role, user.allowedKey]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+    );
+  }, [searchTerm, users]);
+
+  const adminStats = useMemo(
+    () => ({
+      active: users.filter((user) => !user.disabled && user.enabled !== false).length,
+      invited: users.filter((user) => !user.uid).length,
+      admins: users.filter((user) => user.role === 'admin').length,
+    }),
+    [users],
+  );
 
   const createDashboardUser = async (event) => {
     event.preventDefault();
@@ -793,127 +941,220 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
   };
 
   return (
-    <section className="space-y-5">
-      <div className="glass-card rounded-[24px] p-5">
-        <h2 className="text-xl font-semibold text-gray-950">{labels.userManagement}</h2>
-        <p className="mt-1 text-sm text-gray-500">{labels.userManagementSubtitle}</p>
+    <section className="space-y-4">
+      <div className="glass-card rounded-[20px] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-950">{labels.userManagement}</h2>
+            <p className="mt-0.5 text-xs text-gray-500">{labels.userManagementSubtitle}</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[330px]">
+            <AdminSummaryCard label={labels.activeUsers} value={adminStats.active} accent="green" />
+            <AdminSummaryCard label={labels.invitedUsers} value={adminStats.invited} accent="blue" />
+            <AdminSummaryCard label={labels.adminUsers} value={adminStats.admins} accent="amber" />
+          </div>
+        </div>
 
-        <form className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_150px_130px_auto]" onSubmit={createDashboardUser}>
-          <input
-            placeholder={labels.displayName}
-            value={newUser.displayName}
-            onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
-            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
-          />
-          <input
-            type="email"
-            placeholder={labels.email}
-            value={newUser.email}
-            required
-            onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
-            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
-          />
-          <input
-            type="password"
-            placeholder={labels.password}
-            value={newUser.password}
-            minLength={6}
-            disabled={!newUser.allowPassword}
-            onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
-            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none transition focus:ring-4 focus:ring-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
-          />
-          <select
-            value={newUser.role}
-            onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
-            className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200"
-          >
-            <option value="viewer">{labels.viewer}</option>
-            <option value="manager">{labels.manager}</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button
-            type="submit"
-            disabled={isCreating}
-            className="rounded-full bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white disabled:bg-gray-300"
-          >
-            {isCreating ? labels.loading : labels.createUser}
-          </button>
-          <div className="lg:col-span-5 rounded-2xl bg-white/60 p-3 ring-1 ring-gray-200/70">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-gray-500">{labels.providerAccess}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[
-                ['allowGoogle', labels.allowGoogle],
-                ['allowPassword', labels.allowPassword],
-              ].map(([key, label]) => {
-                const isActive = newUser[key];
+        <form className="mt-4 rounded-[18px] bg-white/55 p-3 ring-1 ring-gray-200/70" onSubmit={createDashboardUser}>
+          <div className="mb-3 flex flex-col gap-0.5">
+            <p className="text-sm font-semibold text-gray-950">{labels.inviteUser}</p>
+            <p className="text-xs text-gray-500">{labels.inviteUserSubtitle}</p>
+          </div>
+          <div className="grid gap-2 lg:grid-cols-[1fr_1fr_140px_120px_auto]">
+            <input
+              placeholder={labels.displayName}
+              value={newUser.displayName}
+              onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+            />
+            <input
+              type="email"
+              placeholder={labels.email}
+              value={newUser.email}
+              required
+              onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+            />
+            <input
+              type="password"
+              placeholder={labels.password}
+              value={newUser.password}
+              minLength={6}
+              disabled={!newUser.allowPassword}
+              onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none transition focus:ring-4 focus:ring-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+            />
+            <select
+              value={newUser.role}
+              onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+            >
+              <option value="viewer">{labels.viewer}</option>
+              <option value="manager">{labels.manager}</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="rounded-full bg-gray-950 px-4 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
+            >
+              {isCreating ? labels.loading : labels.createUser}
+            </button>
+            <div className="lg:col-span-5 rounded-xl bg-white/70 p-2.5 ring-1 ring-gray-200/70">
+              <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-gray-500">
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 5 6v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />
+                  <path d="M9.5 12.5 11 14l3.5-4" />
+                </svg>
+                {labels.providerAccess}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[
+                  ['allowGoogle', labels.allowGoogle, 'google'],
+                  ['allowPassword', labels.allowPassword, 'password'],
+                ].map(([key, label, provider]) => {
+                  const isActive = newUser[key];
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() =>
-                      setNewUser((current) => ({
-                        ...current,
-                        [key]: !current[key],
-                        password: key === 'allowPassword' && current.allowPassword ? '' : current.password,
-                      }))
-                    }
-                    className={`rounded-full px-4 py-2 text-xs font-bold transition ${
-                      isActive
-                        ? 'bg-gray-950 text-white shadow-sm'
-                        : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:text-gray-950'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() =>
+                        setNewUser((current) => ({
+                          ...current,
+                          [key]: !current[key],
+                          password: key === 'allowPassword' && current.allowPassword ? '' : current.password,
+                        }))
+                      }
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
+                        isActive
+                          ? 'bg-gray-950 text-white shadow-sm'
+                          : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:text-gray-950'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <ProviderMethodIcon provider={provider} />
+                        {label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </form>
         {error ? <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       </div>
 
-      <div className="glass-card rounded-[24px] p-5">
-        <h3 className="text-base font-semibold text-gray-950">{labels.users}</h3>
-        <div className="mt-4 overflow-hidden rounded-[20px] bg-white/55 ring-1 ring-gray-200/70">
-          {users.length > 0 ? (
+      <div className="glass-card rounded-[20px] p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-semibold text-gray-950">{labels.users}</h3>
+          <label className="relative block sm:w-64">
+            <span className="sr-only">{labels.searchUsers}</span>
+            <svg
+              className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={labels.searchUsers}
+              className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+            />
+          </label>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-[16px] bg-white/55 ring-1 ring-gray-200/70">
+          {filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200/70 text-left text-sm">
-                <thead className="bg-white/60 text-xs uppercase text-gray-500">
+              <table className="min-w-full divide-y divide-gray-200/70 text-left text-xs">
+                <thead className="bg-white/60 text-[10px] uppercase text-gray-500">
                   <tr>
-                    <th className="px-4 py-3">{labels.displayName}</th>
-                    <th className="px-4 py-3">{labels.email}</th>
-                    <th className="px-4 py-3">{labels.role}</th>
-                    <th className="px-4 py-3">{labels.status}</th>
+                    <th className="px-3 py-2">{labels.displayName}</th>
+                    <th className="px-3 py-2">{labels.email}</th>
+                    <th className="px-3 py-2">{labels.access}</th>
+                    <th className="px-3 py-2">{labels.role}</th>
+                    <th className="px-3 py-2">{labels.accountState}</th>
+                    <th className="px-3 py-2">{labels.lastActivity}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {users.map((user) => (
-                    <tr key={user.uid ?? user.allowedKey}>
-                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-950">
-                        {user.displayName ?? '--'}
+                  {filteredUsers.map((user) => (
+                    <tr key={user.uid ?? user.allowedKey} className="transition hover:bg-white/65">
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-700">
+                            {getUserInitials(user)}
+                          </span>
+                          <div>
+                            <p className="font-semibold text-gray-950">{user.displayName ?? user.email}</p>
+                            <p className="text-[10px] text-gray-500">
+                              {user.uid ? labels.signedIn : labels.invited}
+                            </p>
+                          </div>
+                        </div>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-gray-600">{user.email}</td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-3 py-2 text-gray-600">{user.email}</td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          <ProviderBadge
+                            active={user.providers?.google_com === true}
+                            label={labels.allowGoogle}
+                            provider="google"
+                          />
+                          <ProviderBadge
+                            active={user.providers?.password === true}
+                            label={labels.emailPassword}
+                            provider="password"
+                          />
+                        </div>
+                        <p className="mt-0.5 max-w-[210px] truncate text-[10px] text-gray-400">
+                          {user.allowedKey ? `${labels.accessKey}: ${user.allowedKey}` : labels.noProviders}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
                         <select
                           value={user.role ?? 'viewer'}
                           onChange={(event) => updateUserRole(user, event.target.value)}
-                          className="rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold"
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold"
                         >
                           <option value="viewer">{labels.viewer}</option>
                           <option value="manager">{labels.manager}</option>
                           <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-3 py-2">
                         <button
                           type="button"
                           onClick={() => updateUserDisabled(user, !user.disabled)}
-                          className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200"
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ring-1 transition ${
+                            user.disabled
+                              ? 'bg-red-50 text-red-700 ring-red-100 hover:bg-red-100'
+                              : 'bg-emerald-50 text-emerald-700 ring-emerald-100 hover:bg-emerald-100'
+                          }`}
                         >
                           {user.disabled ? labels.disabled : labels.enabled}
                         </button>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-[11px] font-semibold text-gray-500">
+                        {user.updatedAt || user.createdAt ? formatTimestamp(user.updatedAt ?? user.createdAt) : '--'}
                       </td>
                     </tr>
                   ))}
@@ -1389,7 +1630,7 @@ const App = () => {
   return (
     <main className="min-h-screen px-3 py-4 sm:px-4 lg:px-5">
       <div
-        className={`grid w-full gap-4 transition-[grid-template-columns] duration-300 ${
+        className={`grid w-full gap-4 ${
           isSidebarCollapsed
             ? 'lg:grid-cols-[48px_minmax(0,1fr)]'
             : 'lg:grid-cols-[190px_minmax(0,1fr)]'
@@ -1447,8 +1688,14 @@ const App = () => {
               </svg>
             </button>
           </div>
-          {!isSidebarCollapsed ? (
-            <nav className="mt-1.5 flex gap-1.5 lg:flex-col">
+          <nav
+            className={`mt-1.5 flex gap-1.5 transition duration-150 lg:flex-col ${
+              isSidebarCollapsed
+                ? 'pointer-events-none h-0 overflow-hidden opacity-0 lg:scale-95'
+                : 'opacity-100 lg:scale-100'
+            }`}
+            aria-hidden={isSidebarCollapsed}
+          >
               {navItems.map(([sectionId, label, iconName]) => (
                 <div key={sectionId}>
                   <button
@@ -1495,50 +1742,46 @@ const App = () => {
                 </div>
               ))}
             </nav>
-          ) : null}
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-6 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
-          <div className="xl:mt-12">
-            <h1 className="text-3xl font-semibold tracking-normal text-gray-950 sm:text-4xl">
+        <header className="mb-5 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
+          <div className={activeSection === 'admin' ? 'xl:mt-3' : 'xl:mt-12'}>
+            <h1
+              className={`font-semibold tracking-normal text-gray-950 ${
+                activeSection === 'admin' ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'
+              }`}
+            >
               {t.title}
             </h1>
           </div>
-          <div className="flex flex-col items-stretch gap-2.5 xl:mt-12 xl:items-end">
-            <div className="inline-flex items-center justify-end gap-3 rounded-[18px] bg-white/75 px-3 py-2 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200">
+          <div
+            className={`flex flex-col items-stretch gap-2.5 xl:items-end ${
+              activeSection === 'admin' ? 'xl:mt-2' : 'xl:mt-12'
+            }`}
+          >
+            <div className="inline-flex items-center justify-end gap-2 rounded-2xl bg-white/75 px-2.5 py-1.5 text-[11px] font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200">
               <span
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-700"
                 aria-hidden="true"
               >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M20 21a8 8 0 0 0-16 0" />
-                  <circle cx="12" cy="8" r="4" />
-                </svg>
+                {getUserInitials(currentUserProfile ?? currentUser)}
               </span>
               <div className="min-w-0 text-right">
                 <p>{t.signedInAs}</p>
-                <p className="mt-0.5 max-w-[220px] truncate text-gray-950">
+                <p className="mt-0.5 max-w-[200px] truncate text-gray-950">
                   {currentUserProfile?.email ?? currentUser.email}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => signOut(auth)}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
                 aria-label={t.signOut}
                 title={t.signOut}
               >
                 <svg
-                  className="h-3.5 w-3.5"
+                  className="h-3 w-3"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
@@ -1553,9 +1796,9 @@ const App = () => {
                 </svg>
               </button>
             </div>
-            <div className="flex flex-col items-stretch gap-2.5 lg:flex-row lg:items-start">
+            <div className="flex flex-col items-stretch gap-2.5 lg:flex-row lg:items-center">
               {activeSection === 'devices' ? (
-                <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end">
+                <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end lg:self-center">
                   <div className="flex items-center gap-2 px-1 sm:self-center">
                     <span
                       className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
@@ -1754,6 +1997,8 @@ const App = () => {
                 </div>
               ) : null}
             </div>
+          </div>
+          </div>
           </div>
         </header>
 

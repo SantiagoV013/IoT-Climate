@@ -86,6 +86,7 @@ const SensorChart = ({
                   strokeWidth={2.4}
                   dot={false}
                   activeDot={{ r: 5, strokeWidth: 0 }}
+                  isAnimationActive={false}
                 />
               ) : (
                 <Area
@@ -96,6 +97,7 @@ const SensorChart = ({
                   fill={`url(#${dataKey}-gradient)`}
                   dot={false}
                   activeDot={{ r: 5, strokeWidth: 0 }}
+                  isAnimationActive={false}
                 />
               )}
             </Chart>
