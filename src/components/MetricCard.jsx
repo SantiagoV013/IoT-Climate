@@ -27,43 +27,43 @@ const MetricCard = ({
   const isLongValue = valueText.length > 12;
   const valueSizeClass = compact
     ? isLongValue
-      ? 'text-xs leading-snug sm:text-sm'
-      : 'text-sm leading-tight sm:text-base'
+      ? 'text-[11px] leading-snug sm:text-sm'
+      : 'text-xs leading-tight sm:text-base'
     : isLongValue
-      ? 'text-sm leading-tight sm:text-base'
-      : 'text-lg sm:text-xl';
+      ? 'text-xs leading-tight sm:text-base'
+      : 'text-sm sm:text-xl';
 
   return (
-    <article className="glass-card subtle-ring min-h-[76px] rounded-2xl p-2 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:min-h-[88px] sm:p-2.5">
-      <div className="flex items-start justify-between gap-2">
+    <article className="glass-card subtle-ring min-h-[52px] rounded-xl p-1.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:min-h-[88px] sm:rounded-2xl sm:p-2.5">
+      <div className="flex items-start justify-between gap-1.5 sm:gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-semibold text-gray-500">{label}</p>
+          <p className="truncate text-[9px] font-semibold text-gray-500 sm:text-[11px]">{label}</p>
           {isLoading ? (
             <div className="mt-2 h-5 w-16 animate-pulse rounded-full bg-gray-200" />
           ) : (
-            <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-0.5 gap-y-0.5 sm:mt-1 sm:gap-x-1">
               <span
                 className={`max-w-full break-words font-semibold tracking-normal text-gray-950 ${valueSizeClass}`}
               >
                 {value}
               </span>
-              {unit ? <span className="text-[11px] font-medium text-gray-500">{unit}</span> : null}
+              {unit ? <span className="text-[9px] font-medium text-gray-500 sm:text-[11px]">{unit}</span> : null}
             </div>
           )}
         </div>
         <div className="flex items-center gap-1">
           {icon ? (
             <span
-              className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-lg sm:h-6 sm:w-6 ${iconClasses[accent]}`}
+              className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg ${iconClasses[accent]}`}
               aria-hidden="true"
             >
               <MetricIcon name={icon} />
             </span>
           ) : null}
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${accentClasses[accent]}`} />
+          <span className={`hidden h-1.5 w-1.5 shrink-0 rounded-full sm:block ${accentClasses[accent]}`} />
         </div>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:mt-2">
+      <div className="hidden flex-wrap items-center gap-1 sm:mt-2 sm:flex">
         {helper ? <p className="line-clamp-2 text-[10px] leading-snug text-gray-500">{helper}</p> : null}
         {badge ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">

@@ -91,36 +91,36 @@ const AirQualityPanel = ({
   ];
 
   return (
-    <section className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-5">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+    <section className="glass-card rounded-[18px] p-2.5 sm:rounded-[24px] sm:p-5">
+      <div className="flex items-center justify-between gap-2.5 sm:items-start">
         <div className="flex items-start gap-2.5">
           <span
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 sm:h-8 sm:w-8"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 sm:h-8 sm:w-8 sm:rounded-xl"
             aria-hidden="true"
           >
             <AirQualityIcon name="air" />
           </span>
           <div>
-            <h2 className="text-base font-semibold text-gray-950 sm:text-lg">{labels.airQualityAnalytics}</h2>
-            <p className="mt-1 text-xs text-gray-500">{labels.airQualitySubtitle}</p>
+            <h2 className="text-sm font-semibold text-gray-950 sm:text-lg">{labels.airQualityAnalytics}</h2>
+            <p className="mt-1 hidden text-xs text-gray-500 sm:block">{labels.airQualitySubtitle}</p>
           </div>
         </div>
         <span
-          className={`inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 ring-gray-200 ${status.textClass}`}
+          className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[10px] font-semibold shadow-sm ring-1 ring-gray-200 sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs ${status.textClass}`}
         >
           <AirQualityIcon name="rating" />
-          <span className={`h-2 w-2 rounded-full ${status.colorClass}`} />
+          <span className={`h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2 ${status.colorClass}`} />
           {statusLabel}
         </span>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:mt-4 md:grid-cols-4 md:gap-3">
+      <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2 md:grid-cols-4 md:gap-3">
         {cards.map(({ label, value, unit, helper, icon, accent }) => (
-          <div key={label} className="rounded-2xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70 sm:p-3">
+          <div key={label} className="rounded-xl bg-white/65 p-2 shadow-sm ring-1 ring-gray-200/70 sm:rounded-2xl sm:p-3">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-xs font-semibold text-gray-500">{label}</p>
+              <p className="truncate text-[10px] font-semibold text-gray-500 sm:text-xs">{label}</p>
               <span
-                className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
+                className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg ${
                   iconClasses[accent] ?? iconClasses.neutral
                 }`}
                 aria-hidden="true"
@@ -131,12 +131,12 @@ const AirQualityPanel = ({
             {isLoading ? (
               <div className="mt-3 h-7 w-20 animate-pulse rounded-full bg-gray-200" />
             ) : (
-              <p className="mt-2 text-xl font-semibold tracking-normal text-gray-950">
+              <p className="mt-1 text-sm font-semibold tracking-normal text-gray-950 sm:mt-2 sm:text-xl">
                 {value}
-                {unit ? <span className="ml-1 text-sm font-medium text-gray-500">{unit}</span> : null}
+                {unit ? <span className="ml-1 text-[10px] font-medium text-gray-500 sm:text-sm">{unit}</span> : null}
               </p>
             )}
-            <p className="mt-1.5 text-xs font-medium text-gray-500">{helper}</p>
+            <p className="mt-1.5 hidden text-xs font-medium text-gray-500 sm:block">{helper}</p>
           </div>
         ))}
       </div>
