@@ -506,6 +506,97 @@ const SidebarIcon = ({ name }) => {
   return icons[name] ?? null;
 };
 
+const MetricCardPreviewIcon = ({ name }) => {
+  const commonProps = {
+    className: 'h-3.5 w-3.5',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+    'aria-hidden': 'true',
+  };
+
+  const icons = {
+    temperature: (
+      <svg {...commonProps}>
+        <path d="M14 14.76V5a4 4 0 0 0-8 0v9.76a6 6 0 1 0 8 0Z" />
+        <path d="M10 9v7" />
+      </svg>
+    ),
+    humidity: (
+      <svg {...commonProps}>
+        <path d="M12 3.5S6 10 6 14a6 6 0 0 0 12 0c0-4-6-10.5-6-10.5Z" />
+      </svg>
+    ),
+    co2: (
+      <svg {...commonProps}>
+        <path d="M8 17h8a5 5 0 0 0 .5-9.97A6.5 6.5 0 0 0 4 9.5 4.5 4.5 0 0 0 8 17Z" />
+        <path d="M8 21h.01" />
+        <path d="M12 21h.01" />
+        <path d="M16 21h.01" />
+      </svg>
+    ),
+  };
+
+  return icons[name] ?? null;
+};
+
+const AuthInputIcon = ({ name }) => {
+  const commonProps = {
+    className: 'h-4 w-4',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+    'aria-hidden': 'true',
+  };
+
+  const icons = {
+    user: (
+      <svg {...commonProps}>
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="8" r="4" />
+      </svg>
+    ),
+    email: (
+      <svg {...commonProps}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
+      </svg>
+    ),
+    password: (
+      <svg {...commonProps}>
+        <rect x="5" y="11" width="14" height="10" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </svg>
+    ),
+  };
+
+  return icons[name] ?? null;
+};
+
+const AuthField = ({ label, icon, ...inputProps }) => (
+  <label className="block">
+    <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">{label}</span>
+    <span className="relative block">
+      <span
+        className="pointer-events-none absolute left-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl bg-gray-100 text-gray-500"
+        aria-hidden="true"
+      >
+        <AuthInputIcon name={icon} />
+      </span>
+      <input
+        {...inputProps}
+        className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-14 pr-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+      />
+    </span>
+  </label>
+);
+
 const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAccessError }) => {
   const [mode, setMode] = useState('login');
   const [displayName, setDisplayName] = useState('');
@@ -565,134 +656,197 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
     }
   };
 
+  const authTitle = mode === 'login' ? labels.loginTitle : labels.registerTitle;
+
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8">
-      <section className="glass-card w-full max-w-md rounded-[28px] p-6">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {labels.title}
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-gray-950">
-              {mode === 'login' ? labels.loginTitle : labels.registerTitle}
-            </h1>
-          </div>
-          <div className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200">
-            {[
-              ['en', labels.english],
-              ['es', labels.spanish],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onLanguageChange(value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  language === value ? 'bg-gray-950 text-white' : 'text-gray-500'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+      <section className="mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-6xl items-center gap-5 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-stretch lg:content-center">
+        <div className="hidden lg:block">
+          <div className="glass-card relative flex h-full flex-col overflow-hidden rounded-[32px] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-950 text-white">
+                  <SidebarIcon name="monitor" />
+                </span>
+                <h1 className="mt-5 text-5xl font-semibold tracking-normal text-gray-950">
+                  {labels.title}
+                </h1>
+                <p className="mt-3 max-w-md text-base font-medium leading-7 text-gray-500">
+                  {labels.subtitle}
+                </p>
+              </div>
+              <div className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-100">
+                {labels.realtimeDatabase}
+              </div>
+            </div>
+
+            <div className="mt-10 grid gap-3 sm:grid-cols-3">
+              {[
+                [labels.temperature, '25.3', 'C', 'temperature', 'blue'],
+                [labels.humidity, '49', '%', 'humidity', 'green'],
+                [labels.co2, '607', 'ppm', 'co2', 'amber'],
+              ].map(([label, value, unit, icon, accent]) => (
+                <div key={label} className="rounded-2xl bg-white/70 p-3 shadow-sm ring-1 ring-gray-200/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-gray-500">{label}</p>
+                    <span
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-xl ${
+                        accent === 'blue'
+                          ? 'bg-blue-50 text-blue-600'
+                          : accent === 'green'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-amber-50 text-amber-600'
+                      }`}
+                    >
+                      <MetricCardPreviewIcon name={icon} />
+                    </span>
+                  </div>
+                  <p className="mt-4 text-2xl font-semibold text-gray-950">
+                    {value}
+                    <span className="ml-1 text-sm font-medium text-gray-500">{unit}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-[24px] bg-white/60 p-4 shadow-sm ring-1 ring-gray-200/70">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-950">{labels.airQualityAnalytics}</p>
+                  <p className="mt-1 text-xs text-gray-500">{labels.airQualitySubtitle}</p>
+                </div>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  {labels.good}
+                </span>
+              </div>
+              <div className="mt-5 flex h-28 items-end gap-2">
+                {[42, 68, 52, 84, 66, 104, 78, 120, 86, 96, 72, 90].map((height, index) => (
+                  <span
+                    key={index}
+                    className="flex-1 rounded-t-lg bg-gray-950/80"
+                    style={{ height }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={signInWithGoogle}
-          disabled={isSubmitting}
-          className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:text-gray-400"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.53 7.7 23 12 23Z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 4 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"
-            />
-          </svg>
-          {labels.continueWithGoogle}
-        </button>
+        <section className="glass-card flex h-full w-full flex-col justify-center rounded-[30px] p-5 shadow-glass sm:p-6">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {labels.title}
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold text-gray-950">{authTitle}</h1>
+            </div>
+            <div className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200">
+              {[
+                ['en', labels.english],
+                ['es', labels.spanish],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onLanguageChange(value)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    language === value ? 'bg-gray-950 text-white' : 'text-gray-500 hover:text-gray-950'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div className="mb-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs font-semibold text-gray-400">{labels.orUseEmail}</span>
-          <span className="h-px flex-1 bg-gray-200" />
-        </div>
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            disabled={isSubmitting}
+            className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-md disabled:translate-y-0 disabled:text-gray-400"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.53 7.7 23 12 23Z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84Z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 4 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"
+              />
+            </svg>
+            {labels.continueWithGoogle}
+          </button>
 
-        <form className="space-y-4" onSubmit={submitAuth}>
-          {mode === 'register' ? (
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
-                {labels.displayName}
-              </span>
-              <input
+          <div className="mb-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs font-semibold text-gray-400">{labels.orUseEmail}</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <form className="space-y-3" onSubmit={submitAuth}>
+            {mode === 'register' ? (
+              <AuthField
+                label={labels.displayName}
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+                icon="user"
               />
-            </label>
-          ) : null}
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
-              {labels.email}
-            </span>
-            <input
+            ) : null}
+            <AuthField
+              label={labels.email}
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+              icon="email"
             />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
-              {labels.password}
-            </span>
-            <input
+            <AuthField
+              label={labels.password}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
               minLength={6}
-              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+              icon="password"
             />
-          </label>
 
-          {accessError ? (
-            <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-700">{accessError}</p>
-          ) : null}
-          {error ? <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+            {accessError ? (
+              <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-100">
+                {accessError}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">
+                {error}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-full bg-gray-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:translate-y-0 disabled:bg-gray-300"
+            >
+              {isSubmitting ? labels.loading : authTitle}
+            </button>
+          </form>
 
           <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-full bg-gray-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:bg-gray-800 disabled:bg-gray-300"
+            type="button"
+            onClick={() => setMode((current) => (current === 'login' ? 'register' : 'login'))}
+            className="mt-4 w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:text-gray-950 hover:shadow-md"
           >
-            {isSubmitting
-              ? labels.loading
-              : mode === 'login'
-                ? labels.loginTitle
-                : labels.registerTitle}
+            {mode === 'login' ? labels.registerTitle : labels.loginTitle}
           </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => setMode((current) => (current === 'login' ? 'register' : 'login'))}
-          className="mt-4 w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
-        >
-          {mode === 'login' ? labels.registerTitle : labels.loginTitle}
-        </button>
+        </section>
       </section>
     </main>
   );
