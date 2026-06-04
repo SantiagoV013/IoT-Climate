@@ -1483,6 +1483,7 @@ const App = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const t = translations[language];
@@ -1559,6 +1560,7 @@ const App = () => {
   const openDevice = (deviceId) => {
     updateSelectedDevice(deviceId);
     setActiveSection('devices');
+    setIsMobileMenuOpen(false);
   };
 
   useEffect(() => {
@@ -1874,6 +1876,55 @@ const App = () => {
     ['devices', t.devices, 'devices'],
     ...(currentUserProfile?.role === 'admin' ? [['admin', t.admin, 'admin']] : []),
   ];
+  const renderNavigation = ({ onNavigate, nestedClassName = 'mt-1.5 space-y-1 pl-1' } = {}) =>
+    navItems.map(([sectionId, label, iconName]) => (
+      <div key={sectionId}>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSection(sectionId);
+            onNavigate?.();
+          }}
+          className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition ${
+            activeSection === sectionId
+              ? 'bg-gray-950 text-white shadow-sm'
+              : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
+          }`}
+        >
+          <SidebarIcon name={iconName} />
+          <span className="truncate">{label}</span>
+        </button>
+        {sectionId === 'devices' ? (
+          <div className={nestedClassName}>
+            {overviewDevices.map((device) => {
+              const online = isReadingOnline(device.latest, now);
+              const selected = device.id === selectedDeviceId;
+
+              return (
+                <button
+                  key={device.id}
+                  type="button"
+                  onClick={() => openDevice(device.id)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition ${
+                    selected
+                      ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
+                      : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
+                  }`}
+                >
+                  <SidebarIcon name="device" />
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                      online ? 'bg-emerald-500' : 'bg-gray-400'
+                    }`}
+                  />
+                  <span className="truncate">{device.id}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    ));
 
   if (authLoading) {
     return (
@@ -1917,6 +1968,55 @@ const App = () => {
 
   return (
     <main className="min-h-screen px-2.5 py-3 sm:px-4 sm:py-4 lg:px-5">
+      {isMobileMenuOpen ? (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-gray-950/20 backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label={t.hideSidebar}
+          />
+          <aside className="glass-card absolute left-3 top-3 w-[min(82vw,280px)] rounded-[22px] p-3 shadow-glass">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-950 text-white"
+                  aria-hidden="true"
+                >
+                  <SidebarIcon name="monitor" />
+                </span>
+                <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {t.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-gray-500 shadow-sm ring-1 ring-gray-200"
+                aria-label={t.hideSidebar}
+                title={t.hideSidebar}
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex flex-col gap-1.5">
+              {renderNavigation({ onNavigate: () => setIsMobileMenuOpen(false), nestedClassName: 'mt-1.5 space-y-1 pl-1' })}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
       <div
         className={`grid w-full gap-4 ${
           isSidebarCollapsed
@@ -1924,7 +2024,7 @@ const App = () => {
             : 'lg:grid-cols-[190px_minmax(0,1fr)]'
         }`}
       >
-        <aside className="glass-card h-fit rounded-[22px] p-2 lg:sticky lg:top-4">
+        <aside className="glass-card hidden h-fit rounded-[22px] p-2 lg:sticky lg:top-4 lg:block">
           <div
             className={`flex items-center ${
               isSidebarCollapsed ? 'justify-center' : 'justify-between gap-2 px-1.5 py-1.5'
@@ -1984,57 +2084,35 @@ const App = () => {
             }`}
             aria-hidden={isSidebarCollapsed}
           >
-              {navItems.map(([sectionId, label, iconName]) => (
-                <div key={sectionId}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSection(sectionId)}
-                    className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition ${
-                      activeSection === sectionId
-                        ? 'bg-gray-950 text-white shadow-sm'
-                        : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
-                    }`}
-                  >
-                    <SidebarIcon name={iconName} />
-                    <span className="truncate">{label}</span>
-                  </button>
-                  {sectionId === 'devices' ? (
-                    <div className="mt-1.5 space-y-1 pl-1">
-                      {overviewDevices.map((device) => {
-                        const online = isReadingOnline(device.latest, now);
-                        const selected = device.id === selectedDeviceId;
-
-                        return (
-                          <button
-                            key={device.id}
-                            type="button"
-                            onClick={() => openDevice(device.id)}
-                            className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition ${
-                              selected
-                                ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
-                                : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
-                            }`}
-                          >
-                            <SidebarIcon name="device" />
-                            <span
-                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                                online ? 'bg-emerald-500' : 'bg-gray-400'
-                              }`}
-                            />
-                            <span className="truncate">{device.id}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+              {renderNavigation()}
             </nav>
         </aside>
 
         <div className="min-w-0">
         <header className="mb-4 grid gap-3 sm:mb-5 sm:gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
-          <div className={activeSection === 'admin' ? 'xl:mt-3' : 'xl:mt-12'}>
+          <div className={`flex items-center gap-2 ${activeSection === 'admin' ? 'xl:mt-3' : 'xl:mt-12'}`}>
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-gray-700 shadow-sm ring-1 ring-gray-200 lg:hidden"
+              aria-label={t.showSidebar}
+              title={t.showSidebar}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+              </svg>
+            </button>
             <h1
               className={`font-semibold tracking-normal text-gray-950 ${
                 activeSection === 'admin' ? 'text-xl sm:text-3xl' : 'text-2xl sm:text-4xl'
