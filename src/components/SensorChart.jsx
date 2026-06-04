@@ -20,6 +20,13 @@ const formatTooltipLabel = (value, timestampLabel) => {
   return `${timestampLabel}: ${formatChartTime(value)}`;
 };
 
+const formatAxisValue = (value) => {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return value;
+  if (Math.abs(numberValue) >= 1000) return numberValue.toLocaleString();
+  return Number.isInteger(numberValue) ? numberValue : numberValue.toFixed(1);
+};
+
 const SensorChart = ({
   title,
   subtitle,
@@ -44,10 +51,10 @@ const SensorChart = ({
         </div>
       </div>
 
-      <div className="h-56 w-full">
+      <div className="h-60 w-full">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <Chart data={data} margin={{ top: 6, right: 8, left: -24, bottom: 0 }}>
+            <Chart data={data} margin={{ top: 8, right: 16, left: 6, bottom: 4 }}>
               <defs>
                 <linearGradient id={`${dataKey}-gradient`} x1="0" x2="0" y1="0" y2="1">
                   <stop offset="5%" stopColor={color} stopOpacity={0.22} />
@@ -67,7 +74,8 @@ const SensorChart = ({
                 tick={{ fill: '#6b7280', fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
-                width={48}
+                tickFormatter={formatAxisValue}
+                width={58}
               />
               <Tooltip
                 contentStyle={{

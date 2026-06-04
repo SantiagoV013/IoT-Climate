@@ -8,7 +8,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { get, onValue, ref, set, update } from 'firebase/database';
-import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
 import AirQualityPanel from './components/AirQualityPanel.jsx';
 import MetricCard from './components/MetricCard.jsx';
 import ReadingsTable from './components/ReadingsTable.jsx';
@@ -500,47 +500,92 @@ const overviewIconClasses = {
   teal: 'bg-teal-50 text-teal-600',
 };
 
-const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent = 'neutral' }) => (
-  <div className="rounded-xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70">
-    <div className="mb-1.5 flex items-center justify-between gap-2">
-      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-        {icon ? (
-          <span
-            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
-              overviewIconClasses[accent] ?? overviewIconClasses.neutral
-            }`}
-            aria-hidden="true"
-          >
-            <OverviewSensorIcon name={icon} />
-          </span>
-        ) : null}
-        {title}
-      </p>
-      <p className="text-xs font-semibold text-gray-950">
-        {data.at(-1)?.[dataKey] ?? '--'}
+const formatMiniRangeValue = (value, unit = '') => {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '--';
+  const formatted = Number.isInteger(numberValue) ? numberValue : numberValue.toFixed(1);
+  return `${formatted}${unit}`;
+};
+
+const MiniChartTooltip = ({ active, payload, title, unit }) => {
+  if (!active || !payload?.length) return null;
+
+  const point = payload[0]?.payload;
+  const value = payload[0]?.value;
+
+  return (
+    <div className="rounded-lg bg-white/95 px-2 py-1.5 text-left text-[10px] shadow-md ring-1 ring-gray-200">
+      <p className="font-semibold leading-tight text-gray-950">
+        {title}: {value ?? '--'}
         {unit}
       </p>
+      <p className="mt-0.5 whitespace-nowrap text-[9px] font-medium leading-tight text-gray-500">
+        {point?.timestamp ? formatTimestamp(point.timestamp) : '--'}
+      </p>
     </div>
-    <div className="h-12">
-      {data.length > 1 ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <Line
-              type="monotone"
-              dataKey={dataKey}
-              stroke={color}
-              strokeWidth={1.8}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="flex h-full items-center justify-center text-xs text-gray-400">--</div>
-      )}
+  );
+};
+
+const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent = 'neutral' }) => {
+  const values = data
+    .map((reading) => Number(reading?.[dataKey]))
+    .filter((value) => Number.isFinite(value));
+  const minValue = values.length ? Math.min(...values) : null;
+  const maxValue = values.length ? Math.max(...values) : null;
+
+  return (
+    <div className="rounded-xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-gray-500">
+          {icon ? (
+            <span
+              className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
+                overviewIconClasses[accent] ?? overviewIconClasses.neutral
+              }`}
+              aria-hidden="true"
+            >
+              <OverviewSensorIcon name={icon} />
+            </span>
+          ) : null}
+          <span className="truncate">{title}</span>
+        </p>
+        <p className="shrink-0 text-xs font-semibold text-gray-950">
+          {data.at(-1)?.[dataKey] ?? '--'}
+          {unit}
+        </p>
+      </div>
+      <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-1.5">
+        <div className="flex h-14 flex-col justify-between text-[9px] font-semibold text-gray-400">
+          <span>{formatMiniRangeValue(maxValue, unit)}</span>
+          <span>{formatMiniRangeValue(minValue, unit)}</span>
+        </div>
+        <div className="h-14 min-w-0">
+          {data.length > 1 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 4, right: 2, left: 0, bottom: 2 }}>
+                <Tooltip
+                  cursor={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                  content={<MiniChartTooltip title={title} unit={unit} />}
+                />
+                <Line
+                  type="monotone"
+                  dataKey={dataKey}
+                  stroke={color}
+                  strokeWidth={1.8}
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-gray-400">--</div>
+          )}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const SidebarIcon = ({ name }) => {
   const commonProps = {
@@ -2288,11 +2333,19 @@ const App = () => {
                       className="glass-card rounded-[22px] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:shadow-glass"
                     >
                       <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-semibold text-gray-950">
-                            {device.id}
-                          </p>
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <span
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
+                            aria-hidden="true"
+                          >
+                            <SidebarIcon name="device" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-semibold text-gray-950">
+                              {device.id}
+                            </p>
                           <p className="mt-0.5 text-xs text-gray-500">{t.activeDevice}</p>
+                          </div>
                         </div>
                         <span
                           className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
