@@ -19,6 +19,8 @@ const DEVICE_STORAGE_KEY = 'environment-monitor-device';
 const translations = {
   en: {
     languageLabel: 'Language',
+    hideSidebar: 'Hide sidebar',
+    showSidebar: 'Show sidebar',
     english: 'English',
     spanish: 'Español',
     title: 'Environment Monitor',
@@ -32,6 +34,8 @@ const translations = {
     exportDevices: 'Devices to include',
     dateFrom: 'From',
     dateTo: 'To',
+    dateRange: 'Date range',
+    clearDates: 'Clear',
     allDates: 'All dates',
     syncedDatesOnly: 'Date range filters use Firebase millisecond timestamps.',
     noExportRows: 'No rows match this export filter.',
@@ -110,6 +114,8 @@ const translations = {
   },
   es: {
     languageLabel: 'Idioma',
+    hideSidebar: 'Ocultar menu',
+    showSidebar: 'Mostrar menu',
     english: 'English',
     spanish: 'Español',
     title: 'Monitor Ambiental',
@@ -123,6 +129,8 @@ const translations = {
     exportDevices: 'Dispositivos a incluir',
     dateFrom: 'Desde',
     dateTo: 'Hasta',
+    dateRange: 'Rango de fechas',
+    clearDates: 'Limpiar',
     allDates: 'Todas las fechas',
     syncedDatesOnly: 'El rango de fechas usa timestamps de Firebase en milisegundos.',
     noExportRows: 'No hay filas que coincidan con este filtro.',
@@ -291,6 +299,53 @@ const MiniDeviceChart = ({ title, data, dataKey, color, unit = '' }) => (
   </div>
 );
 
+const SidebarIcon = ({ name }) => {
+  const commonProps = {
+    className: 'h-3.5 w-3.5 shrink-0',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+    'aria-hidden': 'true',
+  };
+
+  const icons = {
+    monitor: (
+      <svg {...commonProps}>
+        <rect x="3" y="4" width="18" height="12" rx="2" />
+        <path d="M8 20h8" />
+        <path d="M12 16v4" />
+      </svg>
+    ),
+    overview: (
+      <svg {...commonProps}>
+        <rect x="4" y="4" width="7" height="7" rx="1.5" />
+        <rect x="13" y="4" width="7" height="7" rx="1.5" />
+        <rect x="4" y="13" width="7" height="7" rx="1.5" />
+        <rect x="13" y="13" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+    devices: (
+      <svg {...commonProps}>
+        <rect x="6" y="3" width="12" height="18" rx="2" />
+        <path d="M9 7h6" />
+        <path d="M9 17h6" />
+      </svg>
+    ),
+    device: (
+      <svg {...commonProps}>
+        <rect x="8" y="3" width="8" height="18" rx="2" />
+        <path d="M11 7h2" />
+        <path d="M11 17h2" />
+      </svg>
+    ),
+  };
+
+  return icons[name] ?? null;
+};
+
 const App = () => {
   const [latestReading, setLatestReading] = useState(null);
   const [history, setHistory] = useState([]);
@@ -305,9 +360,12 @@ const App = () => {
   const [exportDeviceIds, setExportDeviceIds] = useState([getInitialDevice()]);
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
+  const [viewFrom, setViewFrom] = useState('');
+  const [viewTo, setViewTo] = useState('');
   const [exportError, setExportError] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const t = translations[language];
@@ -516,13 +574,27 @@ const App = () => {
     };
   }, [selectedDeviceId]);
 
+  const filteredHistory = useMemo(() => {
+    const fromMs = getDateInputMs(viewFrom);
+    const toMs = getDateInputMs(viewTo, true);
+
+    if (!fromMs && !toMs) return history;
+
+    return history.filter((reading) => {
+      if (!reading.time) return false;
+      if (fromMs && reading.time < fromMs) return false;
+      if (toMs && reading.time > toMs) return false;
+      return true;
+    });
+  }, [history, viewFrom, viewTo]);
+
   const chartData = useMemo(
     () =>
-      [...history].reverse().map((reading) => ({
+      [...filteredHistory].reverse().map((reading) => ({
         ...reading,
         chartTime: new Date(Number(reading.timestamp)),
       })),
-    [history],
+    [filteredHistory],
   );
   const isLoading = loading.devices || loading.latest || loading.history;
   const hasHistory = history.length > 0;
@@ -547,76 +619,192 @@ const App = () => {
           history: deviceId === selectedDeviceId ? chartData : [],
         }));
   const navItems = [
-    ['overview', t.overview],
-    ['devices', t.devices],
+    ['overview', t.overview, 'overview'],
+    ['devices', t.devices, 'devices'],
   ];
 
   return (
-    <main className="min-h-screen px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-[1500px] gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="glass-card h-fit rounded-[24px] p-3 lg:sticky lg:top-4">
-          <div className="px-2 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {t.title}
-            </p>
-          </div>
-          <nav className="mt-2 flex gap-2 lg:flex-col">
-            {navItems.map(([sectionId, label]) => (
-              <div key={sectionId}>
-                <button
-                  type="button"
-                  onClick={() => setActiveSection(sectionId)}
-                  className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
-                    activeSection === sectionId
-                      ? 'bg-gray-950 text-white shadow-sm'
-                      : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
-                  }`}
+    <main className="min-h-screen px-3 py-4 sm:px-4 lg:px-5">
+      <div
+        className={`grid w-full gap-4 transition-[grid-template-columns] duration-300 ${
+          isSidebarCollapsed
+            ? 'lg:grid-cols-[48px_minmax(0,1fr)]'
+            : 'lg:grid-cols-[190px_minmax(0,1fr)]'
+        }`}
+      >
+        <aside className="glass-card h-fit rounded-[22px] p-2 lg:sticky lg:top-4">
+          <div
+            className={`flex items-center ${
+              isSidebarCollapsed ? 'justify-center' : 'justify-between gap-2 px-1.5 py-1.5'
+            }`}
+          >
+            {!isSidebarCollapsed ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+                  aria-hidden="true"
                 >
-                  {label}
-                </button>
-                {sectionId === 'devices' ? (
-                  <div className="mt-2 space-y-1 pl-1.5">
-                    {overviewDevices.map((device) => {
-                      const online = isReadingOnline(device.latest, now);
-                      const selected = device.id === selectedDeviceId;
-
-                      return (
-                        <button
-                          key={device.id}
-                          type="button"
-                          onClick={() => openDevice(device.id)}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition ${
-                            selected
-                              ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
-                              : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
-                          }`}
-                        >
-                          <span
-                            className={`h-2 w-2 shrink-0 rounded-full ${
-                              online ? 'bg-emerald-500' : 'bg-gray-400'
-                            }`}
-                          />
-                          <span className="truncate">{device.id}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
+                  <SidebarIcon name="monitor" />
+                </span>
+                <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  {t.title}
+                </p>
               </div>
-            ))}
-          </nav>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed((current) => !current)}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/70 text-gray-600 shadow-sm ring-1 ring-gray-200 transition hover:bg-white hover:text-gray-950"
+              aria-label={isSidebarCollapsed ? t.showSidebar : t.hideSidebar}
+              title={isSidebarCollapsed ? t.showSidebar : t.hideSidebar}
+            >
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                {isSidebarCollapsed ? (
+                  <>
+                    <rect x="4" y="5" width="16" height="14" rx="2" />
+                    <path d="M9 5v14" />
+                    <path d="m13 9 3 3-3 3" />
+                  </>
+                ) : (
+                  <>
+                    <rect x="4" y="5" width="16" height="14" rx="2" />
+                    <path d="M9 5v14" />
+                    <path d="m16 9-3 3 3 3" />
+                  </>
+                )}
+              </svg>
+            </button>
+          </div>
+          {!isSidebarCollapsed ? (
+            <nav className="mt-1.5 flex gap-1.5 lg:flex-col">
+              {navItems.map(([sectionId, label, iconName]) => (
+                <div key={sectionId}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection(sectionId)}
+                    className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition ${
+                      activeSection === sectionId
+                        ? 'bg-gray-950 text-white shadow-sm'
+                        : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
+                    }`}
+                  >
+                    <SidebarIcon name={iconName} />
+                    <span className="truncate">{label}</span>
+                  </button>
+                  {sectionId === 'devices' ? (
+                    <div className="mt-1.5 space-y-1 pl-1">
+                      {overviewDevices.map((device) => {
+                        const online = isReadingOnline(device.latest, now);
+                        const selected = device.id === selectedDeviceId;
+
+                        return (
+                          <button
+                            key={device.id}
+                            type="button"
+                            onClick={() => openDevice(device.id)}
+                            className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition ${
+                              selected
+                                ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
+                                : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
+                            }`}
+                          >
+                            <SidebarIcon name="device" />
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                online ? 'bg-emerald-500' : 'bg-gray-400'
+                              }`}
+                            />
+                            <span className="truncate">{device.id}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </nav>
+          ) : null}
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+        <header className="mb-6 grid gap-4 xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-start">
+          <div className="xl:mt-12">
             <h1 className="text-3xl font-semibold tracking-normal text-gray-950 sm:text-4xl">
               {t.title}
             </h1>
           </div>
-          <div className="flex flex-col items-stretch gap-2.5 sm:items-end">
+          {activeSection === 'devices' ? (
+            <div className="glass-card flex flex-col gap-2 rounded-[18px] p-2.5 sm:flex-row sm:items-end xl:mt-12 xl:justify-self-center">
+              <div className="flex items-center gap-2 px-1 sm:self-center">
+                <span
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+                  aria-hidden="true"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8 2v4" />
+                    <path d="M16 2v4" />
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M3 10h18" />
+                  </svg>
+                </span>
+                <p className="text-xs font-semibold text-gray-500">{t.dateRange}</p>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
+                  {t.dateFrom}
+                </span>
+                <input
+                  type="date"
+                  value={viewFrom}
+                  onChange={(event) => setViewFrom(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-semibold uppercase text-gray-500">
+                  {t.dateTo}
+                </span>
+                <input
+                  type="date"
+                  value={viewTo}
+                  onChange={(event) => setViewTo(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewFrom('');
+                  setViewTo('');
+                }}
+                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+              >
+                {t.clearDates}
+              </button>
+            </div>
+          ) : (
+            <div className="hidden xl:block" />
+          )}
+          <div className="flex flex-col items-stretch gap-2.5 xl:mt-12">
             <div
-              className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
+              className="flex w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
               aria-label={t.languageLabel}
             >
               {[
@@ -627,25 +815,56 @@ const App = () => {
                   key={value}
                   type="button"
                   onClick={() => updateLanguage(value)}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+                  className={`flex-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
                     language === value
                       ? 'bg-gray-950 text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-950'
                   }`}
                   aria-pressed={language === value}
                 >
-                  {label}
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20" />
+                      <path d="M12 2a15.3 15.3 0 0 1 0 20" />
+                      <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+                    </svg>
+                    {label}
+                  </span>
                 </button>
               ))}
             </div>
-            <div className="relative">
+            <div className="relative w-full">
               <button
                 type="button"
                 disabled={devices.length === 0}
                 onClick={() => setIsExportMenuOpen((current) => !current)}
-                className="inline-flex w-full items-center justify-center rounded-full bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none sm:w-auto"
+                className="inline-flex w-full items-center justify-center rounded-full bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
                 aria-expanded={isExportMenuOpen}
               >
+                <svg
+                  className="mr-2 h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3v12" />
+                  <path d="m7 10 5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
                 {t.downloadCsv}
               </button>
 
@@ -961,7 +1180,7 @@ const App = () => {
           </section>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
           <MetricCard
             label={t.status}
             value={isOnline ? t.online : t.offline}
@@ -1126,7 +1345,7 @@ const App = () => {
             <div>
               <h2 className="text-base font-semibold text-gray-950">{t.recentReadings}</h2>
               <p className="mt-1 text-xs text-gray-500">
-                {t.latestRecords} {Math.min(history.length, 5)} {t.historicalRecords}
+                {t.latestRecords} {Math.min(filteredHistory.length, 5)} {t.historicalRecords}
               </p>
             </div>
             <button
@@ -1186,7 +1405,7 @@ const App = () => {
             </div>
             {exportError ? <p className="mt-3 text-sm text-red-600">{exportError}</p> : null}
           </div>
-          <ReadingsTable readings={history} labels={t} deviceId={selectedDeviceId} />
+          <ReadingsTable readings={filteredHistory} labels={t} deviceId={selectedDeviceId} />
         </section>
           </>
         )}

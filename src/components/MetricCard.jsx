@@ -27,44 +27,44 @@ const MetricCard = ({
   const isLongValue = valueText.length > 12;
   const valueSizeClass = compact
     ? isLongValue
-      ? 'text-sm leading-snug sm:text-base'
-      : 'text-lg leading-tight sm:text-xl'
+      ? 'text-xs leading-snug sm:text-sm'
+      : 'text-sm leading-tight sm:text-base'
     : isLongValue
-      ? 'text-lg leading-tight sm:text-xl'
-      : 'text-2xl sm:text-3xl';
+      ? 'text-sm leading-tight sm:text-base'
+      : 'text-lg sm:text-xl';
 
   return (
-    <article className="glass-card subtle-ring min-h-32 rounded-[22px] p-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass">
-      <div className="flex items-start justify-between gap-3">
+    <article className="glass-card subtle-ring min-h-[88px] rounded-2xl p-2.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-500">{label}</p>
+          <p className="truncate text-[11px] font-semibold text-gray-500">{label}</p>
           {isLoading ? (
-            <div className="mt-3 h-7 w-24 animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-2 h-5 w-16 animate-pulse rounded-full bg-gray-200" />
           ) : (
-            <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
+            <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
               <span
                 className={`max-w-full break-words font-semibold tracking-normal text-gray-950 ${valueSizeClass}`}
               >
                 {value}
               </span>
-              {unit ? <span className="text-sm font-medium text-gray-500">{unit}</span> : null}
+              {unit ? <span className="text-[11px] font-medium text-gray-500">{unit}</span> : null}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {icon ? (
             <span
-              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${iconClasses[accent]}`}
+              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${iconClasses[accent]}`}
               aria-hidden="true"
             >
               <MetricIcon name={icon} />
             </span>
           ) : null}
-          <span className={`h-2 w-2 shrink-0 rounded-full ${accentClasses[accent]}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${accentClasses[accent]}`} />
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {helper ? <p className="line-clamp-2 text-[10px] leading-snug text-gray-500">{helper}</p> : null}
         {badge ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
             {badge}
@@ -77,7 +77,7 @@ const MetricCard = ({
 
 const MetricIcon = ({ name }) => {
   const commonProps = {
-    className: 'h-4 w-4',
+    className: 'h-3 w-3',
     fill: 'none',
     stroke: 'currentColor',
     strokeLinecap: 'round',
