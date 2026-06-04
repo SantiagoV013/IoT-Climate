@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
@@ -440,17 +443,17 @@ const DeviceWarning = ({ warning, compact = false }) => {
 
   const isRed = warning.level === 'red';
   const classes = isRed
-    ? 'bg-red-50 text-red-700 ring-red-100'
-    : 'bg-amber-50 text-amber-700 ring-amber-100';
+    ? 'border-red-200/45 bg-red-50/28 text-red-700 shadow-red-900/5 ring-red-100/50'
+    : 'border-amber-200/50 bg-amber-50/30 text-amber-700 shadow-amber-900/5 ring-amber-100/50';
   const dotClass = isRed ? 'bg-red-500' : 'bg-amber-400';
 
   return (
     <div
-      className={`flex items-start gap-2 rounded-2xl px-3 py-2 font-semibold ring-1 ${classes} ${
+      className={`liquid-surface flex items-start gap-2 rounded-2xl px-3 py-2 font-semibold shadow-lg ring-1 ${classes} ${
         compact ? 'text-[10px]' : 'text-xs'
       }`}
     >
-      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotClass} shadow-sm`} />
       <div className="min-w-0">
         <p className="truncate">{warning.title}</p>
         <p className="mt-0.5 line-clamp-2 font-medium opacity-80">{warning.message}</p>
@@ -587,7 +590,7 @@ const MiniChartTooltip = ({ active, payload, title, unit }) => {
   const value = payload[0]?.value;
 
   return (
-    <div className="rounded-lg bg-white/95 px-2 py-1.5 text-left text-[10px] shadow-md ring-1 ring-gray-200">
+    <div className="liquid-control rounded-lg px-2 py-1.5 text-left text-[10px]">
       <p className="font-semibold leading-tight text-gray-950">
         {title}: {value ?? '--'}
         {unit}
@@ -607,7 +610,7 @@ const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent 
   const maxValue = values.length ? Math.max(...values) : null;
 
   return (
-    <div className="rounded-xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70">
+    <div className="liquid-surface rounded-xl p-2.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-gray-500">
           {icon ? (
@@ -791,14 +794,14 @@ const AuthField = ({ label, icon, ...inputProps }) => (
     <span className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">{label}</span>
     <span className="relative block">
       <span
-        className="pointer-events-none absolute left-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl bg-gray-100 text-gray-500"
+        className="pointer-events-none absolute left-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl bg-white/45 text-gray-500"
         aria-hidden="true"
       >
         <AuthInputIcon name={icon} />
       </span>
       <input
         {...inputProps}
-        className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-14 pr-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+        className="liquid-control w-full rounded-2xl py-3 pl-14 pr-4 text-sm font-semibold text-gray-950 outline-none transition focus:border-white/80 focus:ring-4 focus:ring-white/40"
       />
     </span>
   </label>
@@ -872,7 +875,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
           <div className="glass-card relative flex h-full flex-col overflow-hidden rounded-[32px] p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-950 text-white">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-950/95 text-white shadow-lg shadow-gray-950/10">
                   <SidebarIcon name="monitor" />
                 </span>
                 <h1 className="mt-5 text-5xl font-semibold tracking-normal text-gray-950">
@@ -882,7 +885,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
                   {labels.subtitle}
                 </p>
               </div>
-              <div className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-100">
+              <div className="liquid-control rounded-full px-3 py-1.5 text-xs font-semibold text-emerald-700">
                 {labels.realtimeDatabase}
               </div>
             </div>
@@ -893,7 +896,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
                 [labels.humidity, '49', '%', 'humidity', 'green'],
                 [labels.co2, '607', 'ppm', 'co2', 'amber'],
               ].map(([label, value, unit, icon, accent]) => (
-                <div key={label} className="rounded-2xl bg-white/70 p-3 shadow-sm ring-1 ring-gray-200/70">
+                <div key={label} className="liquid-surface rounded-2xl p-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-gray-500">{label}</p>
                     <span
@@ -916,13 +919,13 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
               ))}
             </div>
 
-            <div className="mt-4 rounded-[24px] bg-white/60 p-4 shadow-sm ring-1 ring-gray-200/70">
+            <div className="liquid-surface mt-4 rounded-[24px] p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-950">{labels.airQualityAnalytics}</p>
                   <p className="mt-1 text-xs text-gray-500">{labels.airQualitySubtitle}</p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <span className="liquid-control rounded-full px-3 py-1 text-xs font-semibold text-emerald-700">
                   {labels.good}
                 </span>
               </div>
@@ -947,7 +950,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
               </p>
               <h1 className="mt-2 text-2xl font-semibold text-gray-950 sm:text-3xl">{authTitle}</h1>
             </div>
-            <div className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200">
+            <div className="liquid-control inline-flex rounded-full p-1">
               {[
                 ['en', labels.english],
                 ['es', labels.spanish],
@@ -970,7 +973,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
             type="button"
             onClick={signInWithGoogle}
             disabled={isSubmitting}
-            className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-gray-800 shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-md disabled:translate-y-0 disabled:text-gray-400"
+            className="liquid-control mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-gray-800 transition hover:-translate-y-0.5 hover:bg-white/50 disabled:translate-y-0 disabled:text-gray-400"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -994,9 +997,9 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
           </button>
 
           <div className="mb-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-gray-200" />
+            <span className="h-px flex-1 bg-white/60" />
             <span className="text-xs font-semibold text-gray-400">{labels.orUseEmail}</span>
-            <span className="h-px flex-1 bg-gray-200" />
+            <span className="h-px flex-1 bg-white/60" />
           </div>
 
           <form className="space-y-3" onSubmit={submitAuth}>
@@ -1049,7 +1052,7 @@ const AuthScreen = ({ labels, language, onLanguageChange, accessError, onClearAc
           <button
             type="button"
             onClick={() => setMode((current) => (current === 'login' ? 'register' : 'login'))}
-            className="mt-4 w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-0.5 hover:text-gray-950 hover:shadow-md"
+              className="liquid-control mt-4 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:-translate-y-0.5 hover:text-gray-950"
           >
             {mode === 'login' ? labels.registerTitle : labels.loginTitle}
           </button>
@@ -1096,7 +1099,7 @@ const AdminSummaryCard = ({ label, value, accent = 'gray' }) => {
   };
 
   return (
-    <div className="rounded-xl bg-white/65 p-3 shadow-sm ring-1 ring-gray-200/70">
+    <div className="liquid-surface rounded-xl p-3">
       <div
         className={`mb-2 inline-flex h-6 w-6 items-center justify-center rounded-lg ${
           accentClasses[accent] ?? accentClasses.gray
@@ -1316,7 +1319,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
           </div>
         </div>
 
-        <form className="mt-3 rounded-[16px] bg-white/55 p-2.5 ring-1 ring-gray-200/70 sm:mt-4 sm:rounded-[18px] sm:p-3" onSubmit={createDashboardUser}>
+        <form className="liquid-surface mt-3 rounded-[16px] p-2.5 sm:mt-4 sm:rounded-[18px] sm:p-3" onSubmit={createDashboardUser}>
           <div className="mb-3 flex flex-col gap-0.5">
             <p className="text-sm font-semibold text-gray-950">{labels.inviteUser}</p>
             <p className="text-xs text-gray-500">{labels.inviteUserSubtitle}</p>
@@ -1326,7 +1329,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
               placeholder={labels.displayName}
               value={newUser.displayName}
               onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+              className="liquid-control rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-white/40"
             />
             <input
               type="email"
@@ -1334,7 +1337,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
               value={newUser.email}
               required
               onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+              className="liquid-control rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-white/40"
             />
             <input
               type="password"
@@ -1343,12 +1346,12 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
               minLength={6}
               disabled={!newUser.allowPassword}
               onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none transition focus:ring-4 focus:ring-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+              className="liquid-control rounded-xl px-3 py-2 text-xs font-semibold outline-none transition focus:ring-4 focus:ring-white/40 disabled:bg-white/20 disabled:text-gray-400"
             />
             <select
               value={newUser.role}
               onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-gray-200"
+              className="liquid-control rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-4 focus:ring-white/40"
             >
               <option value="viewer">{labels.viewer}</option>
               <option value="manager">{labels.manager}</option>
@@ -1361,7 +1364,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
             >
               {isCreating ? labels.loading : labels.createUser}
             </button>
-            <div className="lg:col-span-5 rounded-xl bg-white/70 p-2.5 ring-1 ring-gray-200/70">
+            <div className="liquid-surface rounded-xl p-2.5 lg:col-span-5">
               <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-gray-500">
                 <svg
                   className="h-3 w-3"
@@ -1399,7 +1402,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
                       className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
                         isActive
                           ? 'bg-gray-950 text-white shadow-sm'
-                          : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:text-gray-950'
+                          : 'liquid-control text-gray-600 hover:text-gray-950'
                       }`}
                     >
                       <span className="inline-flex items-center gap-1.5">
@@ -1438,15 +1441,15 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={labels.searchUsers}
-              className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+              className="liquid-control w-full rounded-full py-1.5 pl-8 pr-3 text-xs font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-4 focus:ring-white/40"
             />
           </label>
         </div>
-        <div className="mt-3 overflow-hidden rounded-[16px] bg-white/55 ring-1 ring-gray-200/70">
+        <div className="liquid-surface mt-3 overflow-hidden rounded-[16px]">
           {filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200/70 text-left text-xs">
-                <thead className="bg-white/60 text-[10px] uppercase text-gray-500">
+                <thead className="bg-white/25 text-[10px] uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-2">{labels.displayName}</th>
                     <th className="px-3 py-2">{labels.email}</th>
@@ -1458,7 +1461,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredUsers.map((user) => (
-                    <tr key={user.uid ?? user.allowedKey} className="transition hover:bg-white/65">
+                    <tr key={user.uid ?? user.allowedKey} className="transition hover:bg-white/45">
                       <td className="whitespace-nowrap px-3 py-2">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-700">
@@ -1494,7 +1497,7 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
                         <select
                           value={user.role ?? 'viewer'}
                           onChange={(event) => updateUserRole(user, event.target.value)}
-                          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold"
+                          className="liquid-control rounded-lg px-2 py-1 text-[11px] font-semibold"
                         >
                           <option value="viewer">{labels.viewer}</option>
                           <option value="manager">{labels.manager}</option>
@@ -1962,7 +1965,7 @@ const App = () => {
           className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition ${
             activeSection === sectionId
               ? 'bg-gray-950 text-white shadow-sm'
-              : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
+              : 'liquid-control text-gray-600 hover:bg-white/45 hover:text-gray-950'
           }`}
         >
           <SidebarIcon name={iconName} />
@@ -1981,8 +1984,8 @@ const App = () => {
                   onClick={() => openDevice(device.id)}
                   className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition ${
                     selected
-                      ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
-                      : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
+                      ? 'liquid-control text-gray-950'
+                      : 'text-gray-500 hover:bg-white/35 hover:text-gray-950'
                   }`}
                 >
                   <SidebarIcon name="device" />
@@ -2049,7 +2052,7 @@ const App = () => {
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-gray-950/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-gray-950/18 backdrop-blur-md"
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label={t.hideSidebar}
           />
@@ -2057,7 +2060,7 @@ const App = () => {
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-950 text-white"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-950/95 text-white shadow-lg shadow-gray-950/10"
                   aria-hidden="true"
                 >
                   <SidebarIcon name="monitor" />
@@ -2069,7 +2072,7 @@ const App = () => {
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-gray-500 shadow-sm ring-1 ring-gray-200"
+                className="liquid-control inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-gray-500"
                 aria-label={t.hideSidebar}
                 title={t.hideSidebar}
               >
@@ -2088,9 +2091,9 @@ const App = () => {
                 </svg>
               </button>
             </div>
-            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-white/65 p-2 shadow-sm ring-1 ring-gray-200/70">
+            <div className="liquid-surface mb-3 flex items-center gap-2 rounded-2xl p-2">
               <span
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-bold text-gray-700"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/45 text-[11px] font-bold text-gray-700"
                 aria-hidden="true"
               >
                 {getUserInitials(currentUserProfile ?? currentUser)}
@@ -2104,7 +2107,7 @@ const App = () => {
               <button
                 type="button"
                 onClick={() => signOut(auth)}
-                className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200"
+                className="liquid-control ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-500"
                 aria-label={t.signOut}
                 title={t.signOut}
               >
@@ -2125,7 +2128,7 @@ const App = () => {
               </button>
             </div>
             <div
-              className="mb-3 flex w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
+              className="liquid-control mb-3 flex w-full rounded-full p-1"
               aria-label={t.languageLabel}
             >
               {[
@@ -2182,7 +2185,7 @@ const App = () => {
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed((current) => !current)}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/70 text-gray-600 shadow-sm ring-1 ring-gray-200 transition hover:bg-white hover:text-gray-950"
+              className="liquid-control inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-600 transition hover:text-gray-950"
               aria-label={isSidebarCollapsed ? t.showSidebar : t.hideSidebar}
               title={isSidebarCollapsed ? t.showSidebar : t.hideSidebar}
             >
@@ -2230,7 +2233,7 @@ const App = () => {
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-gray-700 shadow-sm ring-1 ring-gray-200 lg:hidden"
+              className="liquid-control inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-700 lg:hidden"
               aria-label={t.showSidebar}
               title={t.showSidebar}
             >
@@ -2262,9 +2265,9 @@ const App = () => {
               activeSection === 'admin' ? 'xl:mt-2' : 'xl:mt-12'
             }`}
           >
-            <div className="hidden items-center justify-end gap-2 rounded-2xl bg-white/75 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 sm:inline-flex sm:text-[11px]">
+            <div className="liquid-control hidden items-center justify-end gap-2 rounded-2xl px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 sm:inline-flex sm:text-[11px]">
               <span
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-700"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/45 text-[9px] font-bold text-gray-700"
                 aria-hidden="true"
               >
                 {getUserInitials(currentUserProfile ?? currentUser)}
@@ -2278,7 +2281,7 @@ const App = () => {
               <button
                 type="button"
                 onClick={() => signOut(auth)}
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                className="liquid-control inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:text-gray-950"
                 aria-label={t.signOut}
                 title={t.signOut}
               >
@@ -2303,7 +2306,7 @@ const App = () => {
                 <div className="glass-card flex flex-col gap-2 rounded-[16px] p-2 sm:flex-row sm:items-end sm:rounded-[18px] sm:p-2.5 lg:self-center">
                   <div className="flex items-center gap-2 px-1 sm:self-center">
                     <span
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/45 text-gray-700"
                       aria-hidden="true"
                     >
                       <svg
@@ -2331,7 +2334,7 @@ const App = () => {
                       type="date"
                       value={viewFrom}
                       onChange={(event) => setViewFrom(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                      className="liquid-control w-full rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-2 focus:ring-white/40 sm:w-36"
                     />
                   </label>
                   <label className="block">
@@ -2342,7 +2345,7 @@ const App = () => {
                       type="date"
                       value={viewTo}
                       onChange={(event) => setViewTo(event.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 sm:w-36"
+                      className="liquid-control w-full rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-2 focus:ring-white/40 sm:w-36"
                     />
                   </label>
                   <button
@@ -2351,7 +2354,7 @@ const App = () => {
                       setViewFrom('');
                       setViewTo('');
                     }}
-                    className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-950"
+                    className="liquid-control rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-500 transition hover:text-gray-950"
                   >
                     {t.clearDates}
                   </button>
@@ -2359,7 +2362,7 @@ const App = () => {
               ) : null}
               <div className="flex min-w-0 flex-col gap-2.5 sm:min-w-[244px]">
                 <div
-                  className="hidden w-full rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200 sm:flex"
+                  className="liquid-control hidden w-full rounded-full p-1 sm:flex"
                   aria-label={t.languageLabel}
                 >
                   {[
@@ -2434,7 +2437,7 @@ const App = () => {
                     <button
                       type="button"
                       onClick={() => setIsExportMenuOpen(false)}
-                      className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200 hover:text-gray-950"
+                      className="liquid-control rounded-full px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950"
                     >
                       {t.close}
                     </button>
@@ -2448,7 +2451,7 @@ const App = () => {
                       {devices.map((deviceId) => (
                         <label
                           key={deviceId}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-white/70 px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200"
+                          className="liquid-surface inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold text-gray-700"
                         >
                           <input
                             type="checkbox"
@@ -2471,7 +2474,7 @@ const App = () => {
                         type="date"
                         value={exportFrom}
                         onChange={(event) => setExportFrom(event.target.value)}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+                        className="liquid-control w-full rounded-2xl px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-4 focus:ring-white/40"
                       />
                     </label>
                     <label className="block">
@@ -2482,7 +2485,7 @@ const App = () => {
                         type="date"
                         value={exportTo}
                         onChange={(event) => setExportTo(event.target.value)}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+                        className="liquid-control w-full rounded-2xl px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-4 focus:ring-white/40"
                       />
                     </label>
                   </div>
@@ -2521,7 +2524,7 @@ const App = () => {
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-gray-950">{t.allDevices}</h2>
                 </div>
-                <div className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
+                <div className="liquid-control shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold text-gray-600">
                   {overviewDevices.length} {t.devices}
                 </div>
               </div>
@@ -2550,7 +2553,7 @@ const App = () => {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-2.5">
                           <span
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/45 text-gray-700"
                             aria-hidden="true"
                           >
                             <SidebarIcon name="device" />
@@ -2562,7 +2565,7 @@ const App = () => {
                           <p className="mt-0.5 text-xs text-gray-500">{t.activeDevice}</p>
                           </div>
                         </div>
-                        <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-2 py-1 text-[10px] font-semibold text-gray-500 shadow-sm ring-1 ring-gray-200">
+                        <span className="liquid-control mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold text-gray-500">
                           <span
                             className={`h-2 w-2 rounded-full ${
                               online ? 'bg-emerald-500' : 'bg-gray-400'
@@ -2676,9 +2679,9 @@ const App = () => {
           <>
         <section className="glass-card mb-4 rounded-[20px] p-3 sm:mb-5 sm:rounded-[24px] sm:p-4">
           <div className="grid grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] gap-1.5 md:grid-cols-[minmax(0,1fr)_140px_minmax(230px,auto)] md:items-stretch md:gap-3">
-            <div className="flex min-h-[48px] items-center gap-1.5 rounded-xl bg-white/70 px-2 py-1.5 shadow-sm ring-1 ring-gray-200 sm:min-h-[72px] sm:gap-3 sm:px-3.5 sm:py-2.5">
+            <div className="liquid-surface flex min-h-[48px] items-center gap-1.5 rounded-xl px-2 py-1.5 sm:min-h-[72px] sm:gap-3 sm:px-3.5 sm:py-2.5">
               <span
-                className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 sm:inline-flex sm:h-8 sm:w-8 sm:rounded-xl"
+                className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/45 text-gray-700 sm:inline-flex sm:h-8 sm:w-8 sm:rounded-xl"
                 aria-hidden="true"
               >
                 <svg
@@ -2707,7 +2710,7 @@ const App = () => {
                 </p>
               ) : null}
             </div>
-            <div className="flex min-h-[48px] flex-col justify-center rounded-xl bg-white/70 px-2 py-1.5 shadow-sm ring-1 ring-gray-200 sm:min-h-[72px] sm:px-3.5 sm:py-2.5">
+            <div className="liquid-surface flex min-h-[48px] flex-col justify-center rounded-xl px-2 py-1.5 sm:min-h-[72px] sm:px-3.5 sm:py-2.5">
               <p className="text-[9px] font-semibold uppercase text-gray-500 sm:text-xs">{t.status}</p>
               <div className="mt-0.5 flex items-center gap-1.5 sm:gap-2">
                 <span
@@ -2720,16 +2723,16 @@ const App = () => {
                 </span>
               </div>
             </div>
-            <div className="flex min-h-[48px] flex-col justify-center rounded-xl bg-white/70 px-2 py-1.5 shadow-sm ring-1 ring-gray-200 sm:min-h-[72px] sm:px-3.5 sm:py-2.5">
+            <div className="liquid-surface flex min-h-[48px] flex-col justify-center rounded-xl px-2 py-1.5 sm:min-h-[72px] sm:px-3.5 sm:py-2.5">
               <p className="text-[9px] font-semibold uppercase text-gray-500 sm:text-xs">{t.lastUpdated}</p>
               {loading.latest ? (
-                <div className="mt-2 h-5 w-36 animate-pulse rounded-full bg-gray-200" />
+                <div className="mt-2 h-5 w-36 animate-pulse rounded-full bg-white/50" />
               ) : (
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <p className="hidden text-[11px] font-semibold leading-tight text-gray-950 sm:block sm:whitespace-nowrap sm:text-sm">
                     {lastUpdatedValue}
                   </p>
-                  <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 sm:px-2 sm:text-xs">
+                  <span className="liquid-control rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 sm:px-2 sm:text-xs">
                     {lastUpdatedHelper}
                   </span>
                   <p className="truncate text-[9px] font-semibold leading-tight text-gray-500 sm:hidden">
@@ -2745,13 +2748,13 @@ const App = () => {
         </section>
 
         {isLoading ? (
-          <section className="mb-5 rounded-[22px] bg-white/70 p-4 text-sm text-gray-500 shadow-sm">
+          <section className="glass-card mb-5 rounded-[22px] p-4 text-sm text-gray-500">
             {t.loading}
           </section>
         ) : null}
 
         {!isLoading && !latestReading && !hasHistory ? (
-          <section className="mb-5 rounded-[22px] bg-white/70 p-6 text-center shadow-sm">
+          <section className="glass-card mb-5 rounded-[22px] p-6 text-center">
             <h2 className="text-xl font-semibold text-gray-950">{t.noSensorReadings}</h2>
             <p className="mt-2 text-gray-500">
               {t.waitingForData} <span className="font-medium">{latestPath}</span> {t.and}{' '}
@@ -2936,13 +2939,13 @@ const App = () => {
               type="button"
               disabled={exportDeviceIds.length === 0 || isExporting}
               onClick={exportCsv}
-              className="inline-flex items-center justify-center rounded-full bg-white px-3.5 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+              className="liquid-control inline-flex items-center justify-center rounded-full px-3.5 py-2 text-sm font-semibold text-gray-900 transition hover:bg-white/50 disabled:cursor-not-allowed disabled:text-gray-400"
             >
               {isExporting ? t.preparingCsv : t.exportHistory}
             </button>
           </div>
 
-          <div className="mb-4 rounded-[20px] bg-white/55 p-3.5 ring-1 ring-gray-200/70">
+          <div className="liquid-surface mb-4 rounded-[20px] p-3.5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_170px_170px]">
               <div>
                 <p className="text-sm font-semibold text-gray-950">{t.csvExport}</p>
@@ -2951,7 +2954,7 @@ const App = () => {
                   {devices.map((deviceId) => (
                     <label
                       key={deviceId}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200"
+                      className="liquid-control inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700"
                     >
                       <input
                         type="checkbox"
@@ -2972,7 +2975,7 @@ const App = () => {
                   type="date"
                   value={exportFrom}
                   onChange={(event) => setExportFrom(event.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+                  className="liquid-control w-full rounded-2xl px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-4 focus:ring-white/40"
                 />
               </label>
               <label className="block">
@@ -2983,7 +2986,7 @@ const App = () => {
                   type="date"
                   value={exportTo}
                   onChange={(event) => setExportTo(event.target.value)}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-200"
+                  className="liquid-control w-full rounded-2xl px-3 py-2.5 text-sm font-semibold text-gray-950 outline-none focus:border-white/80 focus:ring-4 focus:ring-white/40"
                 />
               </label>
             </div>

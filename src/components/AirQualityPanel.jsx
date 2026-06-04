@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 import { formatTimestamp } from '../utils/timestamps.js';
 
 const iconClasses = {
@@ -106,7 +109,7 @@ const AirQualityPanel = ({
           </div>
         </div>
         <span
-          className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[10px] font-semibold shadow-sm ring-1 ring-gray-200 sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs ${status.textClass}`}
+          className={`liquid-control inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs ${status.textClass}`}
         >
           <AirQualityIcon name="rating" />
           <span className={`h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2 ${status.colorClass}`} />
@@ -116,7 +119,7 @@ const AirQualityPanel = ({
 
       <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2 md:grid-cols-4 md:gap-3">
         {cards.map(({ label, value, unit, helper, icon, accent }) => (
-          <div key={label} className="rounded-xl bg-white/65 p-2 shadow-sm ring-1 ring-gray-200/70 sm:rounded-2xl sm:p-3">
+          <div key={label} className="liquid-surface rounded-xl p-2 sm:rounded-2xl sm:p-3">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate text-[10px] font-semibold text-gray-500 sm:text-xs">{label}</p>
               <span
@@ -129,7 +132,7 @@ const AirQualityPanel = ({
               </span>
             </div>
             {isLoading ? (
-              <div className="mt-3 h-7 w-20 animate-pulse rounded-full bg-gray-200" />
+              <div className="mt-3 h-7 w-20 animate-pulse rounded-full bg-white/50" />
             ) : (
               <p className="mt-1 text-sm font-semibold tracking-normal text-gray-950 sm:mt-2 sm:text-xl">
                 {value}

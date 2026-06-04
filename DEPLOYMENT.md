@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 santiago-qoop. All rights reserved. -->
+
 # Deployment
 
 ## Recommended Production Setup

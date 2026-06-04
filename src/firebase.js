@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';

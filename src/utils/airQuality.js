@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 export const getAirQualityStatus = (eco2) => {
   const value = Number(eco2);
   if (!Number.isFinite(value) || value < 0) {

@@ -1,13 +1,16 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 import { formatTimestamp } from '../utils/timestamps.js';
 
 const ReadingsTable = ({ readings, labels, deviceId }) => {
   const recentReadings = readings.slice(0, 5);
 
   return (
-    <div className="overflow-hidden rounded-[16px] border border-white/70 bg-white/55 sm:rounded-[20px]">
+    <div className="liquid-surface overflow-hidden rounded-[16px] sm:rounded-[20px]">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200/70 text-left text-xs sm:text-sm">
-          <thead className="bg-white/55 text-[10px] uppercase tracking-wide text-gray-500 sm:text-xs">
+          <thead className="bg-white/25 text-[10px] uppercase tracking-wide text-gray-500 sm:text-xs">
             <tr>
               <th className="px-2.5 py-2 font-semibold sm:px-3.5 sm:py-3">{labels.tableTime}</th>
               <th className="px-2.5 py-2 font-semibold sm:px-3.5 sm:py-3">{labels.device}</th>
@@ -22,7 +25,7 @@ const ReadingsTable = ({ readings, labels, deviceId }) => {
           <tbody className="divide-y divide-gray-100/80">
             {recentReadings.length > 0 ? (
               recentReadings.map((reading) => (
-                <tr key={reading.id} className="transition hover:bg-white/70">
+                <tr key={reading.id} className="transition hover:bg-white/45">
                   <td className="whitespace-nowrap px-2.5 py-2 text-gray-700 sm:px-3.5 sm:py-3">
                     {formatTimestamp(reading.timestamp)}
                   </td>

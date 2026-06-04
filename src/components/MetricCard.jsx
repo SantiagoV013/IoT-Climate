@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 const MetricCard = ({
   label,
   value,
@@ -34,12 +37,12 @@ const MetricCard = ({
       : 'text-sm sm:text-xl';
 
   return (
-    <article className="glass-card subtle-ring min-h-[52px] rounded-xl p-1.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:min-h-[88px] sm:rounded-2xl sm:p-2.5">
+    <article className="glass-card subtle-ring min-h-[52px] overflow-hidden rounded-xl p-1.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-glass sm:min-h-[88px] sm:rounded-2xl sm:p-2.5">
       <div className="flex items-start justify-between gap-1.5 sm:gap-2">
         <div className="min-w-0">
           <p className="truncate text-[9px] font-semibold text-gray-500 sm:text-[11px]">{label}</p>
           {isLoading ? (
-            <div className="mt-2 h-5 w-16 animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-2 h-5 w-16 animate-pulse rounded-full bg-white/50" />
           ) : (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-0.5 gap-y-0.5 sm:mt-1 sm:gap-x-1">
               <span
@@ -66,7 +69,7 @@ const MetricCard = ({
       <div className="hidden flex-wrap items-center gap-1 sm:mt-2 sm:flex">
         {helper ? <p className="line-clamp-2 text-[10px] leading-snug text-gray-500">{helper}</p> : null}
         {badge ? (
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+          <span className="liquid-control rounded-full px-2.5 py-1 text-xs font-semibold text-amber-700">
             {badge}
           </span>
         ) : null}

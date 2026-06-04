@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 export function getTimestampMs(timestamp) {
   const value = Number(timestamp);
   return Number.isFinite(value) ? value : null;

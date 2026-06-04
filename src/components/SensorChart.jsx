@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2026 santiago-qoop. All rights reserved.
+ */
 import {
   Area,
   AreaChart,
@@ -79,9 +82,11 @@ const SensorChart = ({
               />
               <Tooltip
                 contentStyle={{
-                  border: '1px solid rgba(229,231,235,0.9)',
+                  border: '1px solid rgba(255,255,255,0.64)',
+                  background: 'rgba(255,255,255,0.72)',
+                  backdropFilter: 'blur(18px) saturate(170%)',
                   borderRadius: 14,
-                  boxShadow: '0 18px 45px rgba(15,23,42,0.12)',
+                  boxShadow: '0 18px 45px rgba(15,23,42,0.10)',
                 }}
                 labelFormatter={(value) => formatTooltipLabel(value, timestampLabel)}
                 formatter={(value) => [`${value}${unit ? ` ${unit}` : ''}`, title]}
@@ -111,7 +116,7 @@ const SensorChart = ({
             </Chart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-3xl bg-white/45 text-sm text-gray-500">
+          <div className="liquid-surface flex h-full items-center justify-center rounded-3xl text-sm text-gray-500">
             {emptyLabel}
           </div>
         )}

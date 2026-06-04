@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 santiago-qoop. All rights reserved. -->
+
 # ESP32 Environment Monitor
 
 A minimalist Apple-like dashboard for ESP32 environmental telemetry stored in Firebase Realtime Database.

@@ -2,6 +2,8 @@
   "name": "esp32-environment-monitor",
   "version": "1.0.0",
   "private": true,
+  "author": "santiago-qoop",
+  "copyright": "Copyright (c) 2026 santiago-qoop. All rights reserved.",
   "type": "module",
   "scripts": {
     "dev": "vite",
