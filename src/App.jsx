@@ -262,15 +262,15 @@ const buildMiniHistory = (history) => {
 };
 
 const MiniDeviceChart = ({ title, data, dataKey, color, unit = '' }) => (
-  <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-gray-200/70">
-    <div className="mb-2 flex items-center justify-between gap-2">
+  <div className="rounded-xl bg-white/65 p-2.5 shadow-sm ring-1 ring-gray-200/70">
+    <div className="mb-1.5 flex items-center justify-between gap-2">
       <p className="text-xs font-semibold text-gray-500">{title}</p>
       <p className="text-xs font-semibold text-gray-950">
         {data.at(-1)?.[dataKey] ?? '--'}
         {unit}
       </p>
     </div>
-    <div className="h-16">
+    <div className="h-12">
       {data.length > 1 ? (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
@@ -278,7 +278,7 @@ const MiniDeviceChart = ({ title, data, dataKey, color, unit = '' }) => (
               type="monotone"
               dataKey={dataKey}
               stroke={color}
-              strokeWidth={2}
+              strokeWidth={1.8}
               dot={false}
               isAnimationActive={false}
             />
@@ -552,21 +552,21 @@ const App = () => {
   ];
 
   return (
-    <main className="min-h-screen px-5 py-6 sm:px-8 lg:px-10">
-      <div className="mx-auto grid max-w-[1500px] gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="glass-card h-fit rounded-[30px] p-4 lg:sticky lg:top-6">
-          <div className="px-2 py-3">
+    <main className="min-h-screen px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-[1500px] gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="glass-card h-fit rounded-[24px] p-3 lg:sticky lg:top-4">
+          <div className="px-2 py-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               {t.title}
             </p>
           </div>
-          <nav className="mt-3 flex gap-2 lg:flex-col">
+          <nav className="mt-2 flex gap-2 lg:flex-col">
             {navItems.map(([sectionId, label]) => (
               <div key={sectionId}>
                 <button
                   type="button"
                   onClick={() => setActiveSection(sectionId)}
-                  className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                  className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                     activeSection === sectionId
                       ? 'bg-gray-950 text-white shadow-sm'
                       : 'bg-white/55 text-gray-600 hover:bg-white hover:text-gray-950'
@@ -575,7 +575,7 @@ const App = () => {
                   {label}
                 </button>
                 {sectionId === 'devices' ? (
-                  <div className="mt-2 space-y-1.5 pl-2">
+                  <div className="mt-2 space-y-1 pl-1.5">
                     {overviewDevices.map((device) => {
                       const online = isReadingOnline(device.latest, now);
                       const selected = device.id === selectedDeviceId;
@@ -585,7 +585,7 @@ const App = () => {
                           key={device.id}
                           type="button"
                           onClick={() => openDevice(device.id)}
-                          className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition ${
                             selected
                               ? 'bg-white text-gray-950 shadow-sm ring-1 ring-gray-200'
                               : 'text-gray-500 hover:bg-white/70 hover:text-gray-950'
@@ -608,13 +608,13 @@ const App = () => {
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-4xl font-semibold tracking-normal text-gray-950 sm:text-5xl">
+            <h1 className="text-3xl font-semibold tracking-normal text-gray-950 sm:text-4xl">
               {t.title}
             </h1>
           </div>
-          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+          <div className="flex flex-col items-stretch gap-2.5 sm:items-end">
             <div
               className="inline-flex rounded-full bg-white/75 p-1 shadow-sm ring-1 ring-gray-200"
               aria-label={t.languageLabel}
@@ -627,7 +627,7 @@ const App = () => {
                   key={value}
                   type="button"
                   onClick={() => updateLanguage(value)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
                     language === value
                       ? 'bg-gray-950 text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-950'
@@ -643,7 +643,7 @@ const App = () => {
                 type="button"
                 disabled={devices.length === 0}
                 onClick={() => setIsExportMenuOpen((current) => !current)}
-                className="inline-flex w-full items-center justify-center rounded-full bg-gray-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none sm:w-auto"
+                className="inline-flex w-full items-center justify-center rounded-full bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-gray-950/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none sm:w-auto"
                 aria-expanded={isExportMenuOpen}
               >
                 {t.downloadCsv}
@@ -736,14 +736,14 @@ const App = () => {
         ) : null}
 
         {activeSection === 'overview' ? (
-          <section className="space-y-6">
-            <div className="glass-card rounded-[30px] p-5 sm:p-6">
+          <section className="space-y-4">
+            <div className="glass-card rounded-[24px] p-4 sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-950">{t.allDevices}</h2>
-                  <p className="mt-1 text-sm text-gray-500">{t.deviceOverviewSubtitle}</p>
+                  <h2 className="text-xl font-semibold text-gray-950">{t.allDevices}</h2>
+                  <p className="mt-1 text-xs text-gray-500">{t.deviceOverviewSubtitle}</p>
                 </div>
-                <div className="rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
+                <div className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200">
                   {overviewDevices.length} {t.devices}
                 </div>
               </div>
@@ -766,14 +766,14 @@ const App = () => {
                       key={device.id}
                       type="button"
                       onClick={() => openDevice(device.id)}
-                      className="glass-card rounded-[28px] p-5 text-left transition duration-300 hover:-translate-y-0.5 hover:shadow-glass"
+                      className="glass-card rounded-[22px] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:shadow-glass"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="truncate text-lg font-semibold text-gray-950">
+                          <p className="truncate text-base font-semibold text-gray-950">
                             {device.id}
                           </p>
-                          <p className="mt-1 text-sm text-gray-500">{t.activeDevice}</p>
+                          <p className="mt-0.5 text-xs text-gray-500">{t.activeDevice}</p>
                         </div>
                         <span
                           className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
@@ -782,7 +782,7 @@ const App = () => {
                         />
                       </div>
 
-                      <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+                      <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
                         <div>
                           <p className="text-gray-500">{t.status}</p>
                           <p className="mt-1 font-semibold text-gray-950">
@@ -821,7 +821,7 @@ const App = () => {
                         </div>
                       </div>
 
-                      <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div className="mt-4 grid grid-cols-2 gap-2.5">
                         <MiniDeviceChart
                           title={t.temperature}
                           data={miniData}
@@ -865,7 +865,7 @@ const App = () => {
                         />
                       </div>
 
-                      <p className="mt-5 text-xs font-medium text-gray-500">
+                      <p className="mt-4 text-xs font-medium text-gray-500">
                         {t.lastSeen}:{' '}
                         {latest ? formatTimestamp(latest.timestamp) : '--'}
                       </p>
@@ -873,7 +873,7 @@ const App = () => {
                   );
                 })
               ) : (
-                <div className="glass-card rounded-[28px] p-8 text-center text-gray-500 md:col-span-2 xl:col-span-3">
+                <div className="glass-card rounded-[22px] p-6 text-center text-gray-500 md:col-span-2 xl:col-span-3">
                   {t.noDevices}
                 </div>
               )}
@@ -881,15 +881,15 @@ const App = () => {
           </section>
         ) : (
           <>
-        <section className="glass-card mb-8 rounded-[30px] p-5 sm:p-6">
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px_minmax(240px,auto)] md:items-stretch">
-            <div className="flex min-h-[88px] items-center gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-sm ring-1 ring-gray-200">
+        <section className="glass-card mb-5 rounded-[24px] p-4">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_minmax(230px,auto)] md:items-stretch">
+            <div className="flex min-h-[72px] items-center gap-3 rounded-xl bg-white/70 px-3.5 py-2.5 shadow-sm ring-1 ring-gray-200">
               <span
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-700"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
                 aria-hidden="true"
               >
                 <svg
-                  className="h-5 w-5"
+                  className="h-4 w-4"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
@@ -904,7 +904,7 @@ const App = () => {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase text-gray-500">{t.device}</p>
-                <p className="mt-1 truncate text-base font-semibold text-gray-950 sm:text-lg">
+                <p className="mt-0.5 truncate text-sm font-semibold text-gray-950 sm:text-base">
                   {selectedDeviceId || t.noDevices}
                 </p>
               </div>
@@ -914,29 +914,29 @@ const App = () => {
                 </p>
               ) : null}
             </div>
-            <div className="flex min-h-[88px] flex-col justify-center rounded-2xl bg-white/70 px-4 py-3 shadow-sm ring-1 ring-gray-200">
+            <div className="flex min-h-[72px] flex-col justify-center rounded-xl bg-white/70 px-3.5 py-2.5 shadow-sm ring-1 ring-gray-200">
               <p className="text-xs font-semibold uppercase text-gray-500">{t.status}</p>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-0.5 flex items-center gap-2">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
                     isOnline ? 'bg-emerald-500' : 'bg-gray-400'
                   }`}
                 />
-                <span className="text-base font-semibold text-gray-950">
+                <span className="text-sm font-semibold text-gray-950">
                   {isOnline ? t.online : t.offline}
                 </span>
               </div>
             </div>
-            <div className="flex min-h-[88px] flex-col justify-center rounded-2xl bg-white/70 px-4 py-3 shadow-sm ring-1 ring-gray-200">
+            <div className="flex min-h-[72px] flex-col justify-center rounded-xl bg-white/70 px-3.5 py-2.5 shadow-sm ring-1 ring-gray-200">
               <p className="text-xs font-semibold uppercase text-gray-500">{t.lastUpdated}</p>
               {loading.latest ? (
                 <div className="mt-2 h-5 w-36 animate-pulse rounded-full bg-gray-200" />
               ) : (
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <p className="whitespace-nowrap text-sm font-semibold text-gray-950">
+                <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                  <p className="whitespace-nowrap text-xs font-semibold text-gray-950 sm:text-sm">
                     {lastUpdatedValue}
                   </p>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">
                     {lastUpdatedHelper}
                   </span>
                 </div>
@@ -946,13 +946,13 @@ const App = () => {
         </section>
 
         {isLoading ? (
-          <section className="mb-8 rounded-[28px] bg-white/70 p-5 text-sm text-gray-500 shadow-sm">
+          <section className="mb-5 rounded-[22px] bg-white/70 p-4 text-sm text-gray-500 shadow-sm">
             {t.loading}
           </section>
         ) : null}
 
         {!isLoading && !latestReading && !hasHistory ? (
-          <section className="mb-8 rounded-[28px] bg-white/70 p-8 text-center shadow-sm">
+          <section className="mb-5 rounded-[22px] bg-white/70 p-6 text-center shadow-sm">
             <h2 className="text-xl font-semibold text-gray-950">{t.noSensorReadings}</h2>
             <p className="mt-2 text-gray-500">
               {t.waitingForData} <span className="font-medium">{latestPath}</span> {t.and}{' '}
@@ -961,7 +961,7 @@ const App = () => {
           </section>
         ) : null}
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label={t.status}
             value={isOnline ? t.online : t.offline}
@@ -1036,7 +1036,7 @@ const App = () => {
           />
         </section>
 
-        <section className="mt-8 space-y-6">
+        <section className="mt-5 space-y-4">
           <AirQualityPanel
             labels={t}
             eco2={latestReading?.eco2}
@@ -1048,7 +1048,7 @@ const App = () => {
             isLoading={loading.latest}
           />
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <SensorChart
               title={t.co2}
               subtitle={t.co2SubtitleChart}
@@ -1074,7 +1074,7 @@ const App = () => {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section className="mt-5 grid gap-4 lg:grid-cols-2">
           <SensorChart
             title={t.temperature}
             subtitle={t.temperatureSubtitle}
@@ -1121,11 +1121,11 @@ const App = () => {
           />
         </section>
 
-        <section className="glass-card mt-8 rounded-[30px] p-5 sm:p-6">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="glass-card mt-5 rounded-[24px] p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-950">{t.recentReadings}</h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <h2 className="text-base font-semibold text-gray-950">{t.recentReadings}</h2>
+              <p className="mt-1 text-xs text-gray-500">
                 {t.latestRecords} {Math.min(history.length, 5)} {t.historicalRecords}
               </p>
             </div>
@@ -1133,14 +1133,14 @@ const App = () => {
               type="button"
               disabled={exportDeviceIds.length === 0 || isExporting}
               onClick={exportCsv}
-              className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+              className="inline-flex items-center justify-center rounded-full bg-white px-3.5 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
             >
               {isExporting ? t.preparingCsv : t.exportHistory}
             </button>
           </div>
 
-          <div className="mb-5 rounded-[24px] bg-white/55 p-4 ring-1 ring-gray-200/70">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
+          <div className="mb-4 rounded-[20px] bg-white/55 p-3.5 ring-1 ring-gray-200/70">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_170px_170px]">
               <div>
                 <p className="text-sm font-semibold text-gray-950">{t.csvExport}</p>
                 <p className="mt-1 text-xs text-gray-500">{t.syncedDatesOnly}</p>
