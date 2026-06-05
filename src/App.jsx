@@ -11,7 +11,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { get, onValue, ref, set, update } from 'firebase/database';
-import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AirQualityPanel from './components/AirQualityPanel.jsx';
 import MetricCard from './components/MetricCard.jsx';
 import ReadingsTable from './components/ReadingsTable.jsx';
@@ -25,6 +25,7 @@ const DEFAULT_DEVICE_ID = 'esp32_room_01';
 const DEVICES_PATH = '/devices';
 const ONLINE_WINDOW_MS = 60 * 1000;
 const WIFI_WARNING_WINDOW_MS = 5 * 60 * 1000;
+const REPORT_PERIODS = ['daily', 'weekly', 'monthly'];
 const LANGUAGE_STORAGE_KEY = 'environment-monitor-language';
 const DEVICE_STORAGE_KEY = 'environment-monitor-device';
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? '')
@@ -43,6 +44,7 @@ const translations = {
     subtitle: 'Live ESP32 sensor telemetry',
     overview: 'Overview',
     devices: 'Devices',
+    reporting: 'Reporting',
     admin: 'Admin',
     users: 'Users',
     signOut: 'Sign out',
@@ -171,6 +173,35 @@ const translations = {
     tableCo2: 'CO2',
     tableTvoc: 'TVOC',
     noRecentReadings: 'No recent readings available',
+    reportingTitle: 'Reporting',
+    reportingSubtitle: 'Daily, weekly, and monthly summaries from recovered device history',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    reportWindow: 'Report window',
+    reportLoading: 'Loading report data...',
+    reportNoData: 'No report data for this period yet',
+    reportNoDataHint: 'Reports use Firebase history records from each connected device.',
+    readingsRecovered: 'Readings recovered',
+    activeDevices: 'Active devices',
+    motionTotal: 'Motion events',
+    averageCo2: 'Average CO2',
+    insights: 'Insights',
+    mostActiveMotionDevice: 'Most active motion device',
+    busiestMotionHour: 'Busiest motion hour',
+    highestCo2Device: 'Highest CO2 device',
+    quietestDevice: 'Quietest device',
+    noMotionDetected: 'No motion detected',
+    events: 'events',
+    readings: 'readings',
+    environmentalAverages: 'Environmental averages',
+    motionByHour: 'Motion by hour',
+    peakCo2: 'Peak CO2',
+    peakTvoc: 'Peak TVOC',
+    avgTemperature: 'Avg temperature',
+    avgHumidity: 'Avg humidity',
+    avgLight: 'Avg light',
+    avgTvoc: 'Avg TVOC',
   },
   es: {
     languageLabel: 'Idioma',
@@ -182,6 +213,7 @@ const translations = {
     subtitle: 'Telemetría en vivo del sensor ESP32',
     overview: 'Resumen',
     devices: 'Dispositivos',
+    reporting: 'Reportes',
     admin: 'Admin',
     users: 'Usuarios',
     signOut: 'Cerrar sesion',
@@ -310,6 +342,35 @@ const translations = {
     tableCo2: 'CO2',
     tableTvoc: 'TVOC',
     noRecentReadings: 'No hay lecturas recientes disponibles',
+    reportingTitle: 'Reportes',
+    reportingSubtitle: 'Resumenes diarios, semanales y mensuales del historial recuperado',
+    daily: 'Diario',
+    weekly: 'Semanal',
+    monthly: 'Mensual',
+    reportWindow: 'Ventana del reporte',
+    reportLoading: 'Cargando datos del reporte...',
+    reportNoData: 'Aun no hay datos para este periodo',
+    reportNoDataHint: 'Los reportes usan registros historicos de Firebase por dispositivo.',
+    readingsRecovered: 'Lecturas recuperadas',
+    activeDevices: 'Dispositivos activos',
+    motionTotal: 'Eventos de movimiento',
+    averageCo2: 'CO2 promedio',
+    insights: 'Insights',
+    mostActiveMotionDevice: 'Dispositivo con mas movimiento',
+    busiestMotionHour: 'Hora con mas movimiento',
+    highestCo2Device: 'Dispositivo con mayor CO2',
+    quietestDevice: 'Dispositivo mas tranquilo',
+    noMotionDetected: 'Sin movimiento detectado',
+    events: 'eventos',
+    readings: 'lecturas',
+    environmentalAverages: 'Promedios ambientales',
+    motionByHour: 'Movimiento por hora',
+    peakCo2: 'CO2 maximo',
+    peakTvoc: 'TVOC maximo',
+    avgTemperature: 'Temp promedio',
+    avgHumidity: 'Humedad promedio',
+    avgLight: 'Luz promedio',
+    avgTvoc: 'TVOC promedio',
   },
 };
 
@@ -514,6 +575,13 @@ const OverviewSensorIcon = ({ name }) => {
   };
 
   const icons = {
+    device: (
+      <svg {...commonProps}>
+        <rect x="8" y="3" width="8" height="18" rx="2" />
+        <path d="M11 7h2" />
+        <path d="M11 17h2" />
+      </svg>
+    ),
     status: (
       <svg {...commonProps}>
         <path d="M4 12h4l2-6 4 12 2-6h4" />
@@ -663,6 +731,271 @@ const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent 
   );
 };
 
+const getReportRange = (period, now = Date.now()) => {
+  const end = now;
+  const start = new Date(now);
+
+  if (period === 'daily') {
+    start.setHours(0, 0, 0, 0);
+  } else if (period === 'weekly') {
+    start.setDate(start.getDate() - 7);
+  } else {
+    start.setDate(start.getDate() - 30);
+  }
+
+  return { start: start.getTime(), end };
+};
+
+const getAverage = (rows, key) => {
+  const values = rows.map((row) => Number(row?.[key])).filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+const getPeak = (rows, key) => {
+  const values = rows.map((row) => Number(row?.[key])).filter((value) => Number.isFinite(value));
+  return values.length ? Math.max(...values) : null;
+};
+
+const formatReportValue = (value, decimals = 0) => {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '--';
+  return numberValue.toLocaleString(undefined, {
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals,
+  });
+};
+
+const formatReportHour = (hour) => {
+  if (!Number.isFinite(Number(hour))) return '--';
+  return `${String(hour).padStart(2, '0')}:00`;
+};
+
+const buildReportForDevice = (deviceId, rows, range) => {
+  const readings = rows
+    .filter((row) => row.time && row.time >= range.start && row.time <= range.end)
+    .sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+  const motionRows = readings.filter((row) => Number(row.motion) === 1);
+  const motionByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+
+  motionRows.forEach((row) => {
+    motionByHour[new Date(row.time).getHours()].count += 1;
+  });
+
+  const busiestHour = motionByHour.reduce(
+    (best, item) => (item.count > best.count ? item : best),
+    { hour: null, count: 0 },
+  );
+
+  return {
+    deviceId,
+    readings,
+    readingCount: readings.length,
+    motionCount: motionRows.length,
+    motionByHour,
+    busiestHour: busiestHour.count > 0 ? busiestHour : null,
+    avgTemperature: getAverage(readings, 'temperature'),
+    avgHumidity: getAverage(readings, 'humidity'),
+    avgLight: getAverage(readings, 'lightPercent'),
+    avgCo2: getAverage(readings, 'eco2'),
+    avgTvoc: getAverage(readings, 'tvoc'),
+    peakCo2: getPeak(readings, 'eco2'),
+    peakTvoc: getPeak(readings, 'tvoc'),
+  };
+};
+
+const buildReportSummary = (reports) => {
+  const reportsWithData = reports.filter((report) => report.readingCount > 0);
+  const allReadings = reportsWithData.flatMap((report) => report.readings);
+  const motionTotal = reportsWithData.reduce((sum, report) => sum + report.motionCount, 0);
+  const motionByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+
+  reportsWithData.forEach((report) => {
+    report.motionByHour.forEach(({ hour, count }) => {
+      motionByHour[hour].count += count;
+    });
+  });
+
+  const mostActiveMotionDevice = reportsWithData.reduce(
+    (best, report) => (!best || report.motionCount > best.motionCount ? report : best),
+    null,
+  );
+  const quietestDevice = reportsWithData.reduce(
+    (best, report) => (!best || report.motionCount < best.motionCount ? report : best),
+    null,
+  );
+  const highestCo2Device = reportsWithData.reduce((best, report) => {
+    if (!Number.isFinite(report.peakCo2)) return best;
+    return !best || report.peakCo2 > best.peakCo2 ? report : best;
+  }, null);
+  const busiestMotionHour = motionByHour.reduce(
+    (best, item) => (item.count > best.count ? item : best),
+    { hour: null, count: 0 },
+  );
+
+  return {
+    readingCount: allReadings.length,
+    activeDeviceCount: reportsWithData.length,
+    motionTotal,
+    avgCo2: getAverage(allReadings, 'eco2'),
+    motionByHour,
+    mostActiveMotionDevice,
+    quietestDevice,
+    highestCo2Device,
+    busiestMotionHour: busiestMotionHour.count > 0 ? busiestMotionHour : null,
+  };
+};
+
+const ReportStatCard = ({ label, value, helper, icon, accent = 'neutral' }) => (
+  <div className="liquid-surface rounded-2xl p-3">
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold text-gray-500">{label}</p>
+        <p className="mt-1 text-lg font-semibold text-gray-950">{value}</p>
+      </div>
+      <span
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${
+          overviewIconClasses[accent] ?? overviewIconClasses.neutral
+        }`}
+        aria-hidden="true"
+      >
+        <OverviewSensorIcon name={icon} />
+      </span>
+    </div>
+    {helper ? <p className="mt-1 text-xs font-medium text-gray-500">{helper}</p> : null}
+  </div>
+);
+
+const reportAccentBars = {
+  neutral: 'bg-gray-500',
+  blue: 'bg-blue-500',
+  green: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  red: 'bg-red-500',
+  teal: 'bg-teal-500',
+};
+
+const ReportInsightBars = ({ data, accent = 'neutral', valueFormatter = formatReportValue }) => {
+  const values = data.map((item) => Number(item.value)).filter((value) => Number.isFinite(value));
+  const maxValue = Math.max(...values, 0);
+
+  if (!data.length || maxValue <= 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      {data.slice(0, 4).map((item) => {
+        const value = Number(item.value);
+        const width = Number.isFinite(value) && maxValue > 0 ? Math.max(8, (value / maxValue) * 100) : 0;
+
+        return (
+          <div key={item.label} className="grid grid-cols-[70px_minmax(0,1fr)_42px] items-center gap-2">
+            <span className="truncate text-[10px] font-semibold text-gray-500">{item.label}</span>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
+              <div
+                className={`h-full rounded-full ${reportAccentBars[accent] ?? reportAccentBars.neutral}`}
+                style={{ width: `${width}%` }}
+              />
+            </div>
+            <span className="text-right text-[10px] font-semibold text-gray-500">
+              {valueFormatter(value)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const ReportInsightCard = ({
+  label,
+  value,
+  helper,
+  icon,
+  accent = 'neutral',
+  graphData = [],
+  valueFormatter,
+}) => (
+  <div className="liquid-surface rounded-2xl p-3">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold text-gray-500">{label}</p>
+        <p className="mt-1 truncate text-base font-semibold text-gray-950">{value}</p>
+        <p className="mt-0.5 text-xs font-semibold text-gray-500">{helper}</p>
+      </div>
+      <span
+        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
+          overviewIconClasses[accent] ?? overviewIconClasses.neutral
+        }`}
+        aria-hidden="true"
+      >
+        <OverviewSensorIcon name={icon} />
+      </span>
+    </div>
+    <ReportInsightBars data={graphData} accent={accent} valueFormatter={valueFormatter} />
+  </div>
+);
+
+const ReportMotionChart = ({ data, labels }) => {
+  const maxCount = Math.max(...data.map((item) => item.count), 0);
+  const yMax = Math.max(1, maxCount);
+  const yMiddle = Math.ceil(yMax / 2);
+  const hourTicks = Array.from({ length: 24 }, (_, hour) => hour);
+  const formatHourAxis = (hour) =>
+    [0, 6, 12, 18, 23].includes(Number(hour)) ? formatReportHour(hour) : '';
+
+  return (
+    <div className="h-36">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 10, left: 2, bottom: 2 }}>
+          <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical />
+          <XAxis
+            dataKey="hour"
+            ticks={hourTicks}
+            tickFormatter={formatHourAxis}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 600 }}
+            interval={0}
+            minTickGap={0}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 600, dx: -4 }}
+            width={42}
+            domain={[0, yMax]}
+            ticks={[0, yMiddle, yMax]}
+            allowDecimals={false}
+          />
+          <Tooltip
+            cursor={{ stroke: '#d1d5db', strokeWidth: 1 }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const point = payload[0].payload;
+              return (
+                <div className="liquid-control rounded-lg px-2 py-1 text-[10px] font-semibold text-gray-950">
+                  {formatReportHour(point.hour)} · {point.count} {labels.events}
+                </div>
+              );
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#dc2626"
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 3, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const SidebarIcon = ({ name }) => {
   const commonProps = {
     className: 'h-3.5 w-3.5 shrink-0',
@@ -696,6 +1029,15 @@ const SidebarIcon = ({ name }) => {
         <rect x="6" y="3" width="12" height="18" rx="2" />
         <path d="M9 7h6" />
         <path d="M9 17h6" />
+      </svg>
+    ),
+    reporting: (
+      <svg {...commonProps}>
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="M8 15v-4" />
+        <path d="M12 15V7" />
+        <path d="M16 15v-6" />
       </svg>
     ),
     device: (
@@ -1555,6 +1897,10 @@ const App = () => {
   const [exportTo, setExportTo] = useState('');
   const [viewFrom, setViewFrom] = useState('');
   const [viewTo, setViewTo] = useState('');
+  const [reportPeriod, setReportPeriod] = useState('daily');
+  const [reportHistories, setReportHistories] = useState({});
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
   const [exportError, setExportError] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -1903,6 +2249,51 @@ const App = () => {
     };
   }, [currentUser, currentUserProfile, selectedDeviceId]);
 
+  useEffect(() => {
+    if (
+      activeSection !== 'reporting' ||
+      !database ||
+      !currentUser ||
+      !currentUserProfile ||
+      devices.length === 0
+    ) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setReportLoading(true);
+    setReportError(null);
+
+    Promise.all(
+      devices.map(async (deviceId) => {
+        const snapshot = await get(ref(database, `/devices/${deviceId}/history`));
+        const rows = snapshot.exists()
+          ? Object.entries(snapshot.val())
+              .map(([key, value]) => ({
+                ...normalizeReading(value, key),
+                deviceId,
+              }))
+              .sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
+          : [];
+
+        return [deviceId, rows];
+      }),
+    )
+      .then((entries) => {
+        if (!isCancelled) setReportHistories(Object.fromEntries(entries));
+      })
+      .catch((reportLoadError) => {
+        if (!isCancelled) setReportError(reportLoadError.message);
+      })
+      .finally(() => {
+        if (!isCancelled) setReportLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeSection, currentUser, currentUserProfile, devices]);
+
   const filteredHistory = useMemo(() => {
     const fromMs = getDateInputMs(viewFrom);
     const toMs = getDateInputMs(viewTo, true);
@@ -1948,9 +2339,19 @@ const App = () => {
           latest: deviceId === selectedDeviceId ? latestReading : null,
           history: deviceId === selectedDeviceId ? chartData : [],
         }));
+  const reportRange = useMemo(() => getReportRange(reportPeriod, now), [reportPeriod, now]);
+  const reportRows = useMemo(
+    () =>
+      devices.map((deviceId) =>
+        buildReportForDevice(deviceId, reportHistories[deviceId] ?? [], reportRange),
+      ),
+    [devices, reportHistories, reportRange],
+  );
+  const reportSummary = useMemo(() => buildReportSummary(reportRows), [reportRows]);
   const navItems = [
     ['overview', t.overview, 'overview'],
     ['devices', t.devices, 'devices'],
+    ['reporting', t.reporting, 'reporting'],
     ...(currentUserProfile?.role === 'admin' ? [['admin', t.admin, 'admin']] : []),
   ];
   const renderNavigation = ({ onNavigate, nestedClassName = 'mt-1.5 space-y-1 pl-1' } = {}) =>
@@ -2228,7 +2629,7 @@ const App = () => {
         </aside>
 
         <div className="min-w-0">
-        <header className="mb-4 mt-2 grid gap-3 sm:mb-5 sm:mt-0 sm:gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
+        <header className="mb-4 mt-6 grid gap-3 sm:mb-5 sm:mt-4 sm:gap-4 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-start">
           <div className={`flex items-center gap-2 ${activeSection === 'admin' ? 'xl:mt-3' : 'xl:mt-12'}`}>
             <button
               type="button"
@@ -2517,6 +2918,282 @@ const App = () => {
 
         {activeSection === 'admin' && currentUserProfile?.role === 'admin' ? (
           <AdminPanel labels={t} users={users} currentUserProfile={currentUserProfile} />
+        ) : activeSection === 'reporting' ? (
+          <section className="space-y-4">
+            <section className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-gray-950">{t.reportingTitle}</h2>
+                  <p className="mt-1 max-w-2xl text-xs font-medium text-gray-500">
+                    {t.reportingSubtitle}
+                  </p>
+                </div>
+                <div className="liquid-control flex shrink-0 rounded-full p-1">
+                  {REPORT_PERIODS.map((period) => (
+                    <button
+                      key={period}
+                      type="button"
+                      onClick={() => setReportPeriod(period)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        reportPeriod === period
+                          ? 'bg-gray-950 text-white shadow-sm'
+                          : 'text-gray-500 hover:text-gray-950'
+                      }`}
+                      aria-pressed={reportPeriod === period}
+                    >
+                      {t[period]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <ReportStatCard
+                  label={t.reportWindow}
+                  value={t[reportPeriod]}
+                  helper={`${formatTimestamp(reportRange.start)} - ${formatTimestamp(reportRange.end)}`}
+                  icon="status"
+                  accent="neutral"
+                />
+                <ReportStatCard
+                  label={t.readingsRecovered}
+                  value={formatReportValue(reportSummary.readingCount)}
+                  helper={`${formatReportValue(reportSummary.activeDeviceCount)} ${t.activeDevices}`}
+                  icon="device"
+                  accent="blue"
+                />
+                <ReportStatCard
+                  label={t.motionTotal}
+                  value={formatReportValue(reportSummary.motionTotal)}
+                  helper={t.motionByHour}
+                  icon="motion"
+                  accent={reportSummary.motionTotal > 0 ? 'red' : 'neutral'}
+                />
+                <ReportStatCard
+                  label={t.averageCo2}
+                  value={`${formatReportValue(reportSummary.avgCo2)} ppm`}
+                  helper={t.environmentalAverages}
+                  icon="co2"
+                  accent={getCo2Accent(reportSummary.avgCo2)}
+                />
+              </div>
+            </section>
+
+            {reportError ? (
+              <section className="glass-card rounded-[20px] p-4 text-sm font-semibold text-red-700">
+                {reportError}
+              </section>
+            ) : null}
+
+            {reportLoading ? (
+              <section className="glass-card rounded-[20px] p-4 text-sm font-semibold text-gray-500">
+                {t.reportLoading}
+              </section>
+            ) : null}
+
+            {!reportLoading && reportSummary.readingCount === 0 ? (
+              <section className="glass-card rounded-[22px] p-6 text-center">
+                <h2 className="text-base font-semibold text-gray-950">{t.reportNoData}</h2>
+                <p className="mt-2 text-sm text-gray-500">{t.reportNoDataHint}</p>
+              </section>
+            ) : null}
+
+            {!reportLoading && reportSummary.readingCount > 0 ? (
+              <>
+                <section className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-950">{t.insights}</h3>
+                      <p className="mt-1 text-xs font-medium text-gray-500">
+                        {t.reportWindow}: {t[reportPeriod]}
+                      </p>
+                    </div>
+                    <span className="liquid-control inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+                      {formatReportValue(reportSummary.activeDeviceCount)} {t.devices}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                    <ReportInsightCard
+                      label={t.mostActiveMotionDevice}
+                      value={reportSummary.mostActiveMotionDevice?.deviceId ?? '--'}
+                      helper={
+                        reportSummary.mostActiveMotionDevice
+                          ? `${formatReportValue(reportSummary.mostActiveMotionDevice.motionCount)} ${t.events}`
+                          : t.noMotionDetected
+                      }
+                      icon="motion"
+                      accent={reportSummary.mostActiveMotionDevice?.motionCount > 0 ? 'red' : 'neutral'}
+                      graphData={reportRows
+                        .filter((report) => report.readingCount > 0)
+                        .map((report) => ({
+                          label: report.deviceId,
+                          value: report.motionCount,
+                        }))
+                        .sort((a, b) => b.value - a.value)}
+                    />
+                    <ReportInsightCard
+                      label={t.busiestMotionHour}
+                      value={
+                        reportSummary.busiestMotionHour
+                          ? formatReportHour(reportSummary.busiestMotionHour.hour)
+                          : '--'
+                      }
+                      helper={
+                        reportSummary.busiestMotionHour
+                          ? `${formatReportValue(reportSummary.busiestMotionHour.count)} ${t.events}`
+                          : t.noMotionDetected
+                      }
+                      icon="status"
+                      accent={reportSummary.busiestMotionHour ? 'amber' : 'neutral'}
+                      graphData={reportSummary.motionByHour
+                        .filter((hour) => hour.count > 0)
+                        .map((hour) => ({
+                          label: formatReportHour(hour.hour),
+                          value: hour.count,
+                        }))
+                        .sort((a, b) => b.value - a.value)}
+                    />
+                    <ReportInsightCard
+                      label={t.highestCo2Device}
+                      value={reportSummary.highestCo2Device?.deviceId ?? '--'}
+                      helper={
+                        reportSummary.highestCo2Device
+                          ? `${formatReportValue(reportSummary.highestCo2Device.peakCo2)} ppm`
+                          : '--'
+                      }
+                      icon="co2"
+                      accent={getCo2Accent(reportSummary.highestCo2Device?.peakCo2)}
+                      graphData={reportRows
+                        .filter((report) => report.readingCount > 0 && Number.isFinite(report.peakCo2))
+                        .map((report) => ({
+                          label: report.deviceId,
+                          value: report.peakCo2,
+                        }))
+                        .sort((a, b) => b.value - a.value)}
+                      valueFormatter={(value) => `${formatReportValue(value)} ppm`}
+                    />
+                    <ReportInsightCard
+                      label={t.quietestDevice}
+                      value={reportSummary.quietestDevice?.deviceId ?? '--'}
+                      helper={
+                        reportSummary.quietestDevice
+                          ? `${formatReportValue(reportSummary.quietestDevice.motionCount)} ${t.events}`
+                          : '--'
+                      }
+                      icon="device"
+                      accent="green"
+                      graphData={reportRows
+                        .filter((report) => report.readingCount > 0)
+                        .map((report) => ({
+                          label: report.deviceId,
+                          value: report.motionCount,
+                        }))
+                        .sort((a, b) => a.value - b.value)}
+                    />
+                  </div>
+
+                  <div className="liquid-surface mt-3 rounded-2xl p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-gray-500">{t.motionByHour}</p>
+                      <p className="text-xs font-semibold text-gray-950">
+                        {reportSummary.busiestMotionHour
+                          ? `${formatReportHour(reportSummary.busiestMotionHour.hour)} · ${formatReportValue(
+                              reportSummary.busiestMotionHour.count,
+                            )} ${t.events}`
+                          : '--'}
+                      </p>
+                    </div>
+                    <ReportMotionChart data={reportSummary.motionByHour} labels={t} />
+                  </div>
+                </section>
+
+                <section className="grid gap-3 xl:grid-cols-2">
+                  {reportRows.map((report) => (
+                    <article
+                      key={report.deviceId}
+                      className="glass-card rounded-[20px] p-3 sm:rounded-[24px] sm:p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/45 text-gray-700"
+                            aria-hidden="true"
+                          >
+                            <SidebarIcon name="device" />
+                          </span>
+                          <div className="min-w-0">
+                            <h3 className="truncate text-base font-semibold text-gray-950">
+                              {report.deviceId}
+                            </h3>
+                            <p className="mt-0.5 text-xs font-medium text-gray-500">
+                              {formatReportValue(report.readingCount)} {t.readings}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="liquid-control inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+                          {formatReportValue(report.motionCount)} {t.events}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        <ReportStatCard
+                          label={t.avgTemperature}
+                          value={`${formatReportValue(report.avgTemperature, 1)} C`}
+                          icon="temperature"
+                          accent="blue"
+                        />
+                        <ReportStatCard
+                          label={t.avgHumidity}
+                          value={`${formatReportValue(report.avgHumidity, 0)}%`}
+                          icon="humidity"
+                          accent="green"
+                        />
+                        <ReportStatCard
+                          label={t.avgLight}
+                          value={`${formatReportValue(report.avgLight, 0)}%`}
+                          icon="light"
+                          accent="amber"
+                        />
+                        <ReportStatCard
+                          label={t.peakCo2}
+                          value={`${formatReportValue(report.peakCo2)} ppm`}
+                          icon="co2"
+                          accent={getCo2Accent(report.peakCo2)}
+                        />
+                        <ReportStatCard
+                          label={t.avgTvoc}
+                          value={`${formatReportValue(report.avgTvoc)} ppb`}
+                          icon="tvoc"
+                          accent="teal"
+                        />
+                        <ReportStatCard
+                          label={t.peakTvoc}
+                          value={`${formatReportValue(report.peakTvoc)} ppb`}
+                          icon="tvoc"
+                          accent="blue"
+                        />
+                      </div>
+
+                      <div className="liquid-surface mt-3 rounded-2xl p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold text-gray-500">{t.motionByHour}</p>
+                          <p className="text-xs font-semibold text-gray-950">
+                            {report.busiestHour
+                              ? `${formatReportHour(report.busiestHour.hour)} · ${formatReportValue(
+                                  report.busiestHour.count,
+                                )} ${t.events}`
+                              : t.noMotionDetected}
+                          </p>
+                        </div>
+                        <ReportMotionChart data={report.motionByHour} labels={t} />
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              </>
+            ) : null}
+          </section>
         ) : activeSection === 'overview' ? (
           <section className="space-y-4">
             <div className="glass-card rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2">
