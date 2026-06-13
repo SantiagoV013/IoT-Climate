@@ -2,6 +2,8 @@
 
 # ESP32 Environment Monitor
 
+Deploy: https://iot-climate.vercel.app/
+
 A minimalist Apple-like dashboard for ESP32 environmental telemetry stored in Firebase Realtime Database.
 
 ## Features
