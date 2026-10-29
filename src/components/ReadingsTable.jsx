@@ -2,9 +2,12 @@
  * Copyright (c) 2026 santiago-qoop. All rights reserved.
  */
 import { formatTimestamp } from '../utils/timestamps.js';
+import { useState, useEffect } from 'react';
 
 const ReadingsTable = ({ readings, labels, deviceId }) => {
-  const recentReadings = readings.slice(0, 5);
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [readings, deviceId]);
+  const recentReadings = readings.slice(page * 5, (page + 1) * 5);
 
   return (
     <div className="liquid-surface overflow-hidden rounded-[16px] sm:rounded-[20px]">
@@ -69,6 +72,11 @@ const ReadingsTable = ({ readings, labels, deviceId }) => {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between gap-3 p-3 text-xs">
+        <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} className="disabled:opacity-30" aria-label={labels.newerPage}>←</button>
+        <span>{readings.length ? page * 5 + 1 : 0}–{Math.min((page + 1) * 5, readings.length)} / {readings.length}</span>
+        <button type="button" disabled={(page + 1) * 5 >= readings.length} onClick={() => setPage(page + 1)} className="disabled:opacity-30" aria-label={labels.olderPage}>→</button>
       </div>
     </div>
   );

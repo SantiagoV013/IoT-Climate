@@ -5,6 +5,14 @@
 @tailwind components;
 @tailwind utilities;
 
+.data-loading-ring { animation: data-loading-spin 1.4s linear infinite; }
+.data-loading-track { animation: data-loading-slide 1.8s ease-in-out infinite alternate; }
+@keyframes data-loading-spin { to { transform: rotate(360deg); } }
+@keyframes data-loading-slide { from { transform: translateX(0); } to { transform: translateX(200%); } }
+@media (prefers-reduced-motion: reduce) {
+  .data-loading-ring, .data-loading-track { animation: none; }
+}
+
 :root {
   color: #111827;
   background: #eef2f7;

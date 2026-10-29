@@ -10,9 +10,10 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { get, onValue, ref, set, update } from 'firebase/database';
+import { get, onValue, ref, set, update, query, orderByKey, limitToLast, endBefore } from 'firebase/database';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AirQualityPanel from './components/AirQualityPanel.jsx';
+import DataLoading from './components/DataLoading.jsx';
 import MetricCard from './components/MetricCard.jsx';
 import ReadingsTable from './components/ReadingsTable.jsx';
 import SensorChart from './components/SensorChart.jsx';
@@ -45,6 +46,14 @@ const translations = {
     overview: 'Overview',
     devices: 'Devices',
     reporting: 'Reporting',
+    fetchingData: 'Fetching and loading data...',
+    fetchingHint: 'Larger queries may take a moment.',
+    preparingReport: 'Loading history and preparing your report...',
+    preparingExport: 'Loading history and preparing your CSV...',
+    newerPage: 'Newer records',
+    olderPage: 'Older records',
+    historyPage: 'History page',
+    pageScope: 'Charts and date filters apply to this block of up to 100 records. CSV exports use the full history.',
     admin: 'Admin',
     users: 'Users',
     signOut: 'Sign out',
@@ -214,6 +223,14 @@ const translations = {
     overview: 'Resumen',
     devices: 'Dispositivos',
     reporting: 'Reportes',
+    fetchingData: 'Recuperando y cargando datos...',
+    fetchingHint: 'Las consultas grandes pueden tardar unos momentos.',
+    preparingReport: 'Cargando historial y preparando el reporte...',
+    preparingExport: 'Cargando historial y preparando tu CSV...',
+    newerPage: 'Registros más recientes',
+    olderPage: 'Registros anteriores',
+    historyPage: 'Página del historial',
+    pageScope: 'Las gráficas y fechas filtran este bloque de hasta 100 registros. El CSV usa el historial completo.',
     admin: 'Admin',
     users: 'Usuarios',
     signOut: 'Cerrar sesion',
@@ -1879,6 +1896,9 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
 const App = () => {
   const [latestReading, setLatestReading] = useState(null);
   const [history, setHistory] = useState([]);
+  const [historyCursors, setHistoryCursors] = useState([null]);
+  const [hasOlderHistory, setHasOlderHistory] = useState(false);
+  const [oldestHistoryKey, setOldestHistoryKey] = useState(null);
   const [devices, setDevices] = useState([DEFAULT_DEVICE_ID]);
   const [deviceSummaries, setDeviceSummaries] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(getInitialDevice);
@@ -1917,6 +1937,7 @@ const App = () => {
   };
 
   const updateSelectedDevice = (deviceId) => {
+    setHistoryCursors([null]);
     setSelectedDeviceId(deviceId);
     window.localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
   };
@@ -2134,27 +2155,42 @@ const App = () => {
       return undefined;
     }
 
-    const devicesRef = ref(database, DEVICES_PATH);
-
-    const unsubscribeDevices = onValue(
-      devicesRef,
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setDevices([]);
-          setLoading((current) => ({ ...current, devices: false }));
-          return;
+    let cancelled = false;
+    const subscriptions = new Map();
+    const controller = new AbortController();
+    // REST shallow reads return device keys without downloading their histories.
+    const discover = async () => {
+      try {
+        const token = await currentUser.getIdToken();
+        const url = new URL(`${import.meta.env.VITE_FIREBASE_DATABASE_URL.replace(/\/$/, '')}/devices.json`);
+        url.searchParams.set('shallow', 'true');
+        url.searchParams.set('auth', token);
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`Device discovery failed (${response.status})`);
+        const deviceIds = Object.keys(await response.json() ?? {}).sort();
+        if (cancelled) return;
+        setDevices((current) => JSON.stringify(current) === JSON.stringify(deviceIds) ? current : deviceIds);
+        setDeviceSummaries((current) => current.filter((device) => deviceIds.includes(device.id)));
+        for (const [id, unsubscribe] of subscriptions) {
+          if (!deviceIds.includes(id)) { unsubscribe(); subscriptions.delete(id); }
         }
-
-        const deviceEntries = Object.entries(snapshot.val()).sort(([a], [b]) => a.localeCompare(b));
-        const deviceIds = deviceEntries.map(([deviceId]) => deviceId);
-        const summaries = deviceEntries.map(([deviceId, deviceData]) => ({
-          id: deviceId,
-          latest: deviceData?.latest ? normalizeReading(deviceData.latest, 'latest') : null,
-          history: buildMiniHistory(deviceData?.history),
-        }));
-
-        setDevices(deviceIds);
-        setDeviceSummaries(summaries);
+        for (const id of deviceIds) {
+          if (subscriptions.has(id)) continue;
+          const merge = (patch) => setDeviceSummaries((current) => {
+            if (current.some((device) => device.id === id)) {
+              return current.map((device) => device.id === id ? { ...device, ...patch } : device);
+            }
+            return [...current, { id, ...patch }].sort((a, b) => a.id.localeCompare(b.id));
+          });
+          const onError = (err) => setDeviceDiscoveryError(err.message);
+          const latestSubscription = onValue(ref(database, `/devices/${id}/latest`), (snapshot) => {
+            merge({ latest: snapshot.exists() ? normalizeReading(snapshot.val(), 'latest') : null });
+          }, onError);
+          const historySubscription = onValue(query(ref(database, `/devices/${id}/history`), orderByKey(), limitToLast(24)), (snapshot) => {
+            merge({ history: buildMiniHistory(snapshot.val()) });
+          }, onError);
+          subscriptions.set(id, () => { latestSubscription(); historySubscription(); });
+        }
         setExportDeviceIds((current) => {
           const existing = current.filter((deviceId) => deviceIds.includes(deviceId));
           return existing.length > 0 ? existing : deviceIds;
@@ -2165,16 +2201,21 @@ const App = () => {
         if (!deviceIds.includes(selectedDeviceId)) {
           updateSelectedDevice(deviceIds[0] ?? DEFAULT_DEVICE_ID);
         }
-      },
-      (firebaseError) => {
+      } catch (firebaseError) {
+        if (cancelled) return;
         setDeviceDiscoveryError(firebaseError.message);
         setDevices([selectedDeviceId]);
         setLoading((current) => ({ ...current, devices: false }));
-      },
-    );
+      }
+    };
+    discover();
+    const timer = setInterval(discover, 60000);
 
     return () => {
-      unsubscribeDevices();
+      cancelled = true;
+      controller.abort();
+      clearInterval(timer);
+      subscriptions.forEach((unsubscribe) => unsubscribe());
     };
   }, [currentUser, currentUserProfile, selectedDeviceId]);
 
@@ -2191,7 +2232,9 @@ const App = () => {
     const latestPath = `/devices/${selectedDeviceId}/latest`;
     const historyPath = `/devices/${selectedDeviceId}/history`;
     const latestRef = ref(database, latestPath);
-    const historyRef = ref(database, historyPath);
+    const cursor = historyCursors.at(-1);
+    const historyRef = query(ref(database, historyPath), orderByKey(),
+      ...(cursor === null ? [] : [endBefore(cursor)]), limitToLast(101));
 
     const unsubscribeLatest = onValue(
       latestRef,
@@ -2224,13 +2267,18 @@ const App = () => {
     const unsubscribeHistory = onValue(
       historyRef,
       (snapshot) => {
+        const entries = [];
+        snapshot.forEach((child) => { entries.push([child.key, child.val()]); });
+        setHasOlderHistory(entries.length > 100);
+        const pageEntries = entries.slice(-100);
+        setOldestHistoryKey(pageEntries[0]?.[0] ?? null);
         if (!snapshot.exists()) {
           setHistory([]);
           setLoading((current) => ({ ...current, history: false }));
           return;
         }
 
-        const rows = Object.entries(snapshot.val())
+        const rows = pageEntries
           .map(([key, value]) => normalizeReading(value, key))
           .sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
 
@@ -2247,7 +2295,7 @@ const App = () => {
       unsubscribeLatest();
       unsubscribeHistory();
     };
-  }, [currentUser, currentUserProfile, selectedDeviceId]);
+  }, [currentUser, currentUserProfile, selectedDeviceId, historyCursors]);
 
   useEffect(() => {
     if (
@@ -2908,6 +2956,14 @@ const App = () => {
           </div>
           </div>
         </header>
+        {(isExporting || (activeSection === 'reporting' && reportLoading) ||
+          (activeSection === 'devices' && isLoading) ||
+          (activeSection === 'overview' && loading.devices)) ? (
+          <DataLoading
+            title={isExporting ? t.preparingExport : activeSection === 'reporting' ? t.preparingReport : t.fetchingData}
+            description={t.fetchingHint}
+          />
+        ) : null}
 
         {error ? (
           <section className="mb-8 rounded-[28px] border border-red-200 bg-red-50/80 p-5 text-red-700">
@@ -2985,11 +3041,6 @@ const App = () => {
               </section>
             ) : null}
 
-            {reportLoading ? (
-              <section className="glass-card rounded-[20px] p-4 text-sm font-semibold text-gray-500">
-                {t.reportLoading}
-              </section>
-            ) : null}
 
             {!reportLoading && reportSummary.readingCount === 0 ? (
               <section className="glass-card rounded-[22px] p-6 text-center">
@@ -3424,11 +3475,6 @@ const App = () => {
           </div>
         </section>
 
-        {isLoading ? (
-          <section className="glass-card mb-5 rounded-[22px] p-4 text-sm text-gray-500">
-            {t.loading}
-          </section>
-        ) : null}
 
         {!isLoading && !latestReading && !hasHistory ? (
           <section className="glass-card mb-5 rounded-[22px] p-6 text-center">
@@ -3519,6 +3565,12 @@ const App = () => {
           />
         </section>
 
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+          <span>{t.historyPage} {historyCursors.length}</span>
+          <button type="button" disabled={loading.history || historyCursors.length === 1} onClick={() => setHistoryCursors((current) => current.slice(0, -1))} className="liquid-control rounded-lg px-3 py-2 disabled:opacity-40">{t.newerPage}</button>
+          <button type="button" disabled={loading.history || !hasOlderHistory || !oldestHistoryKey} onClick={() => setHistoryCursors((current) => [...current, oldestHistoryKey])} className="liquid-control rounded-lg px-3 py-2 disabled:opacity-40">{t.olderPage}</button>
+          <p className="w-full text-gray-500">{t.pageScope}</p>
+        </div>
         <section className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
           <AirQualityPanel
             labels={t}
