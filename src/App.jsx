@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2026 santiago-qoop. All rights reserved.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -21,6 +21,9 @@ import { auth, database, firebaseApiKey, firebaseConfigError } from './firebase.
 import { getAirQualityStatus, getCo2Accent, getTrend, getWifiSignalStatus } from './utils/airQuality.js';
 import { downloadReadingsCsv } from './utils/csvExport.js';
 import { watchDeviceDirectory } from './utils/deviceDirectory.js';
+import { createHistoryPageReader } from './utils/firebaseHistory.js';
+import { createHistoryLoader } from './utils/historyLoader.js';
+import { buildReportSummary, getReportRange, REPORT_PERIODS } from './utils/reporting.js';
 import { formatRelativeTime, formatTimestamp, getTimestampMs } from './utils/timestamps.js';
 
 const DEFAULT_DEVICE_ID = 'esp32_room_01';
@@ -28,7 +31,6 @@ const HISTORY_PAGE_SIZE = 100;
 const OVERVIEW_HISTORY_SIZE = 24;
 const ONLINE_WINDOW_MS = 60 * 1000;
 const WIFI_WARNING_WINDOW_MS = 5 * 60 * 1000;
-const REPORT_PERIODS = ['daily', 'weekly', 'monthly'];
 const LANGUAGE_STORAGE_KEY = 'environment-monitor-language';
 const DEVICE_STORAGE_KEY = 'environment-monitor-device';
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? '')
@@ -191,6 +193,10 @@ const translations = {
     monthly: 'Monthly',
     reportWindow: 'Report window',
     reportLoading: 'Loading report data...',
+    refreshReport: 'Refresh report',
+    reportUpdatedAt: 'Last updated',
+    reportCacheHint: 'Daily, weekly and monthly reports share one download. Refresh to fetch new readings.',
+    reportProgress: 'Readings processed',
     reportNoData: 'No report data for this period yet',
     reportNoDataHint: 'Reports use Firebase history records from each connected device.',
     readingsRecovered: 'Readings recovered',
@@ -368,6 +374,10 @@ const translations = {
     monthly: 'Mensual',
     reportWindow: 'Ventana del reporte',
     reportLoading: 'Cargando datos del reporte...',
+    refreshReport: 'Actualizar reporte',
+    reportUpdatedAt: 'Última actualización',
+    reportCacheHint: 'Los reportes diario, semanal y mensual comparten una descarga. Actualiza para consultar nuevas lecturas.',
+    reportProgress: 'Lecturas procesadas',
     reportNoData: 'Aun no hay datos para este periodo',
     reportNoDataHint: 'Los reportes usan registros historicos de Firebase por dispositivo.',
     readingsRecovered: 'Lecturas recuperadas',
@@ -750,33 +760,8 @@ const MiniDeviceChart = ({ title, data, dataKey, color, unit = '', icon, accent 
   );
 };
 
-const getReportRange = (period, now = Date.now()) => {
-  const end = now;
-  const start = new Date(now);
-
-  if (period === 'daily') {
-    start.setHours(0, 0, 0, 0);
-  } else if (period === 'weekly') {
-    start.setDate(start.getDate() - 7);
-  } else {
-    start.setDate(start.getDate() - 30);
-  }
-
-  return { start: start.getTime(), end };
-};
-
-const getAverage = (rows, key) => {
-  const values = rows.map((row) => Number(row?.[key])).filter((value) => Number.isFinite(value));
-  if (!values.length) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-};
-
-const getPeak = (rows, key) => {
-  const values = rows.map((row) => Number(row?.[key])).filter((value) => Number.isFinite(value));
-  return values.length ? Math.max(...values) : null;
-};
-
 const formatReportValue = (value, decimals = 0) => {
+  if (value == null || value === '') return '--';
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) return '--';
   return numberValue.toLocaleString(undefined, {
@@ -788,81 +773,6 @@ const formatReportValue = (value, decimals = 0) => {
 const formatReportHour = (hour) => {
   if (!Number.isFinite(Number(hour))) return '--';
   return `${String(hour).padStart(2, '0')}:00`;
-};
-
-const buildReportForDevice = (deviceId, rows, range) => {
-  const readings = rows
-    .filter((row) => row.time && row.time >= range.start && row.time <= range.end)
-    .sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
-  const motionRows = readings.filter((row) => Number(row.motion) === 1);
-  const motionByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
-
-  motionRows.forEach((row) => {
-    motionByHour[new Date(row.time).getHours()].count += 1;
-  });
-
-  const busiestHour = motionByHour.reduce(
-    (best, item) => (item.count > best.count ? item : best),
-    { hour: null, count: 0 },
-  );
-
-  return {
-    deviceId,
-    readings,
-    readingCount: readings.length,
-    motionCount: motionRows.length,
-    motionByHour,
-    busiestHour: busiestHour.count > 0 ? busiestHour : null,
-    avgTemperature: getAverage(readings, 'temperature'),
-    avgHumidity: getAverage(readings, 'humidity'),
-    avgLight: getAverage(readings, 'lightPercent'),
-    avgCo2: getAverage(readings, 'eco2'),
-    avgTvoc: getAverage(readings, 'tvoc'),
-    peakCo2: getPeak(readings, 'eco2'),
-    peakTvoc: getPeak(readings, 'tvoc'),
-  };
-};
-
-const buildReportSummary = (reports) => {
-  const reportsWithData = reports.filter((report) => report.readingCount > 0);
-  const allReadings = reportsWithData.flatMap((report) => report.readings);
-  const motionTotal = reportsWithData.reduce((sum, report) => sum + report.motionCount, 0);
-  const motionByHour = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
-
-  reportsWithData.forEach((report) => {
-    report.motionByHour.forEach(({ hour, count }) => {
-      motionByHour[hour].count += count;
-    });
-  });
-
-  const mostActiveMotionDevice = reportsWithData.reduce(
-    (best, report) => (!best || report.motionCount > best.motionCount ? report : best),
-    null,
-  );
-  const quietestDevice = reportsWithData.reduce(
-    (best, report) => (!best || report.motionCount < best.motionCount ? report : best),
-    null,
-  );
-  const highestCo2Device = reportsWithData.reduce((best, report) => {
-    if (!Number.isFinite(report.peakCo2)) return best;
-    return !best || report.peakCo2 > best.peakCo2 ? report : best;
-  }, null);
-  const busiestMotionHour = motionByHour.reduce(
-    (best, item) => (item.count > best.count ? item : best),
-    { hour: null, count: 0 },
-  );
-
-  return {
-    readingCount: allReadings.length,
-    activeDeviceCount: reportsWithData.length,
-    motionTotal,
-    avgCo2: getAverage(allReadings, 'eco2'),
-    motionByHour,
-    mostActiveMotionDevice,
-    quietestDevice,
-    highestCo2Device,
-    busiestMotionHour: busiestMotionHour.count > 0 ? busiestMotionHour : null,
-  };
 };
 
 const ReportStatCard = ({ label, value, helper, icon, accent = 'neutral' }) => (
@@ -1919,7 +1829,9 @@ const App = () => {
   const [viewFrom, setViewFrom] = useState('');
   const [viewTo, setViewTo] = useState('');
   const [reportPeriod, setReportPeriod] = useState('daily');
-  const [reportHistories, setReportHistories] = useState({});
+  const [reportProgress, setReportProgress] = useState(null);
+  const [reportSnapshot, setReportSnapshot] = useState(null);
+  const [reportRefresh, setReportRefresh] = useState(0);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState(null);
   const [exportError, setExportError] = useState(null);
@@ -1928,10 +1840,30 @@ const App = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const exportController = useRef(null);
 
   const t = translations[language];
   const locale = language === 'es' ? 'es-MX' : 'en-US';
   const hasDeviceAccess = Boolean(currentUser && currentUserProfile);
+  const historyLoader = useMemo(() => (
+    database && hasDeviceAccess && currentUser
+      ? createHistoryLoader({ readPage: createHistoryPageReader(database) })
+      : null
+  ), [currentUser, hasDeviceAccess]);
+
+  useEffect(() => {
+    setReportProgress(null);
+    setReportSnapshot(null);
+    setReportError(null);
+    setReportLoading(false);
+    setIsExporting(false);
+    setExportError(null);
+    return () => {
+      historyLoader?.clear();
+      exportController.current?.abort();
+      exportController.current = null;
+    };
+  }, [historyLoader]);
 
   const updateLanguage = (nextLanguage) => {
     setLanguage(nextLanguage);
@@ -1953,37 +1885,26 @@ const App = () => {
   };
 
   const exportCsv = async () => {
-    if (!database || exportDeviceIds.length === 0) return;
+    if (!historyLoader || exportDeviceIds.length === 0 || exportController.current) return;
 
+    const controller = new AbortController();
+    exportController.current = controller;
     setIsExporting(true);
     setExportError(null);
 
     const fromMs = getDateInputMs(exportFrom);
     const toMs = getDateInputMs(exportTo, true);
-    const hasDateFilter = Boolean(fromMs || toMs);
-
     try {
-      const deviceRows = await Promise.all(
-        exportDeviceIds.map(async (deviceId) => {
-          const snapshot = await get(ref(database, `/devices/${deviceId}/history`));
-          if (!snapshot.exists()) return [];
-
-          return Object.entries(snapshot.val()).map(([key, value]) => ({
-            ...normalizeReading(value, key),
-            deviceId,
-          }));
-        }),
-      );
-
-      const rows = deviceRows
-        .flat()
-        .filter((reading) => {
-          if (!hasDateFilter) return true;
-          if (!reading.time) return false;
-          if (fromMs && reading.time < fromMs) return false;
-          if (toMs && reading.time > toMs) return false;
-          return true;
-        })
+      const histories = await historyLoader.loadExport(exportDeviceIds, {
+        range: fromMs !== null || toMs !== null ? { start: fromMs, end: toMs } : null,
+        signal: controller.signal,
+      });
+      controller.signal.throwIfAborted();
+      const rows = Object.entries(histories)
+        .flatMap(([deviceId, entries]) => entries.map(([key, value]) => ({
+          ...normalizeReading(value, key),
+          deviceId,
+        })))
         .sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 
       if (rows.length === 0) {
@@ -1996,9 +1917,12 @@ const App = () => {
       downloadReadingsCsv(rows, `${devicePart}-readings.csv`);
       setIsExportMenuOpen(false);
     } catch (csvError) {
-      setExportError(csvError.message);
+      if (!controller.signal.aborted) setExportError(csvError.message);
     } finally {
-      setIsExporting(false);
+      if (exportController.current === controller) {
+        exportController.current = null;
+        setIsExporting(false);
+      }
     }
   };
 
@@ -2303,49 +2227,35 @@ const App = () => {
   }, [activeSection, devices, hasDeviceAccess, currentUser, selectedDeviceId, historyCursors]);
 
   useEffect(() => {
-    if (
-      activeSection !== 'reporting' ||
-      !database ||
-      !currentUser ||
-      !currentUserProfile ||
-      devices.length === 0
-    ) {
+    if (activeSection !== 'reporting' || !historyLoader || devices.length === 0) {
+      setReportLoading(false);
       return undefined;
     }
 
-    let isCancelled = false;
+    const controller = new AbortController();
     setReportLoading(true);
     setReportError(null);
+    setReportProgress(null);
+    setReportSnapshot(null);
 
-    Promise.all(
-      devices.map(async (deviceId) => {
-        const snapshot = await get(ref(database, `/devices/${deviceId}/history`));
-        const rows = snapshot.exists()
-          ? Object.entries(snapshot.val())
-              .map(([key, value]) => ({
-                ...normalizeReading(value, key),
-                deviceId,
-              }))
-              .sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
-          : [];
-
-        return [deviceId, rows];
-      }),
-    )
-      .then((entries) => {
-        if (!isCancelled) setReportHistories(Object.fromEntries(entries));
+    historyLoader.loadReports(devices, {
+      signal: controller.signal,
+      onProgress: (progress) => {
+        if (!controller.signal.aborted) setReportProgress(progress);
+      },
+    })
+      .then((snapshot) => {
+        if (!controller.signal.aborted) setReportSnapshot(snapshot);
       })
       .catch((reportLoadError) => {
-        if (!isCancelled) setReportError(reportLoadError.message);
+        if (!controller.signal.aborted) setReportError(reportLoadError.message);
       })
       .finally(() => {
-        if (!isCancelled) setReportLoading(false);
+        if (!controller.signal.aborted) setReportLoading(false);
       });
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeSection, currentUser, currentUserProfile, devices]);
+    return () => controller.abort();
+  }, [activeSection, historyLoader, devices, reportRefresh]);
 
   const filteredHistory = useMemo(() => {
     const fromMs = getDateInputMs(viewFrom);
@@ -2392,14 +2302,12 @@ const App = () => {
           latest: deviceId === selectedDeviceId ? latestReading : null,
           history: deviceId === selectedDeviceId ? chartData : [],
         }));
-  const reportRange = useMemo(() => getReportRange(reportPeriod, now), [reportPeriod, now]);
-  const reportRows = useMemo(
-    () =>
-      devices.map((deviceId) =>
-        buildReportForDevice(deviceId, reportHistories[deviceId] ?? [], reportRange),
-      ),
-    [devices, reportHistories, reportRange],
-  );
+  const reportRange = useMemo(() => (
+    reportSnapshot?.ranges[reportPeriod] ?? getReportRange(reportPeriod, now)
+  ), [reportSnapshot, reportPeriod, now]);
+  const reportRows = useMemo(() => (
+    Object.values(reportSnapshot?.reports[reportPeriod] ?? {})
+  ), [reportSnapshot, reportPeriod]);
   const reportSummary = useMemo(() => buildReportSummary(reportRows), [reportRows]);
   const navItems = [
     ['overview', t.overview, 'overview'],
@@ -2966,7 +2874,9 @@ const App = () => {
           (activeSection === 'overview' && loading.devices)) ? (
           <DataLoading
             title={isExporting ? t.preparingExport : activeSection === 'reporting' ? t.preparingReport : t.fetchingData}
-            description={t.fetchingHint}
+            description={!isExporting && activeSection === 'reporting' && reportProgress
+              ? `${t.reportProgress}: ${formatReportValue(reportProgress.scannedReadings)} · ${reportProgress.completedDevices}/${reportProgress.totalDevices} ${t.devices}`
+              : t.fetchingHint}
           />
         ) : null}
 
@@ -3008,6 +2918,27 @@ const App = () => {
                 </div>
               </div>
 
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 text-xs text-gray-500" aria-live="polite">
+                  <p className="font-semibold">
+                    {t.reportUpdatedAt}: {reportSnapshot?.updatedAt
+                      ? formatTimestamp(reportSnapshot.updatedAt) : '--'}
+                  </p>
+                  <p className="mt-1">{t.reportCacheHint}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={reportLoading || !historyLoader || devices.length === 0}
+                  onClick={() => {
+                    historyLoader.clear();
+                    setReportRefresh((value) => value + 1);
+                  }}
+                  className="liquid-control rounded-full px-4 py-2 text-xs font-semibold text-gray-700 transition hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {reportLoading ? t.reportLoading : t.refreshReport}
+                </button>
+              </div>
+
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 <ReportStatCard
                   label={t.reportWindow}
@@ -3047,7 +2978,7 @@ const App = () => {
             ) : null}
 
 
-            {!reportLoading && reportSummary.readingCount === 0 ? (
+            {!reportLoading && !reportError && reportSummary.readingCount === 0 ? (
               <section className="glass-card rounded-[22px] p-6 text-center">
                 <h2 className="text-base font-semibold text-gray-950">{t.reportNoData}</h2>
                 <p className="mt-2 text-sm text-gray-500">{t.reportNoDataHint}</p>

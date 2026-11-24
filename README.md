@@ -30,6 +30,19 @@ CSV export can include one or more devices. Date range filtering uses Firebase/U
 - Loading, empty, and Firebase error states
 - Responsive Tailwind CSS layout
 
+## Historical downloads and report cache
+
+- Reports read history in pages of at most 2,000 records; CSV exports use 500. At most two device downloads run at once across both features.
+- Pages use Firebase key ordering and an exclusive cursor, so page boundaries do not repeat records. All pages are read; there is no total record cap.
+- Date filters still use each reading's `timestamp` (falling back to its key). This preserves legacy keys, but a fresh request still scans the full history in smaller pages. Pagination limits individual requests and concurrency; it does not reduce the total records read on a cache miss.
+- Reports calculate daily, weekly (last seven days), and monthly (last 30 days) statistics together during one scan. Each page is aggregated and released; raw readings are not retained in React state or the report cache. Peaks use incremental comparisons, so large monthly reports do not exceed JavaScript's function argument limit. Missing sensor values are excluded from averages.
+- Completed statistics are cached per device for five minutes after loading finishes. Returning to Reports within that window reuses them. Daily reports invalidate at local midnight on the next visit. Switching periods uses the loaded statistics immediately and does not cancel or restart an in-progress download. Loading shows the number of readings processed and devices completed.
+- **Last updated** shows the oldest device fetch completion time used in the report. The displayed report window shows its data cutoff. **Refresh report** refreshes all periods together. Expired entries reload on the next visit; reports do not poll in the background.
+- CSV exports always fetch fresh pages. Leaving Reports stops scheduling its remaining pages; a Firebase request already in flight may finish. Signing out clears the report cache and cancels pending exports.
+- Keep historical records immutable while downloading. Pagination across multiple requests is not an atomic database snapshot; concurrent edits or backfills can affect a download.
+
+Run regression tests with `npm test` and build with `npm run build`.
+
 ## Firebase Data Shape
 
 The dashboard expects readings like this:
