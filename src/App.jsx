@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2026 santiago-qoop. All rights reserved.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -10,19 +10,22 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { get, onValue, ref, set, update } from 'firebase/database';
+import { get, onValue, ref, set, update, query, orderByKey, limitToLast, endBefore } from 'firebase/database';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AirQualityPanel from './components/AirQualityPanel.jsx';
+import DataLoading from './components/DataLoading.jsx';
 import MetricCard from './components/MetricCard.jsx';
 import ReadingsTable from './components/ReadingsTable.jsx';
 import SensorChart from './components/SensorChart.jsx';
 import { auth, database, firebaseApiKey, firebaseConfigError } from './firebase.js';
 import { getAirQualityStatus, getCo2Accent, getTrend, getWifiSignalStatus } from './utils/airQuality.js';
 import { downloadReadingsCsv } from './utils/csvExport.js';
+import { watchDeviceDirectory } from './utils/deviceDirectory.js';
 import { formatRelativeTime, formatTimestamp, getTimestampMs } from './utils/timestamps.js';
 
 const DEFAULT_DEVICE_ID = 'esp32_room_01';
-const DEVICES_PATH = '/devices';
+const HISTORY_PAGE_SIZE = 100;
+const OVERVIEW_HISTORY_SIZE = 24;
 const ONLINE_WINDOW_MS = 60 * 1000;
 const WIFI_WARNING_WINDOW_MS = 5 * 60 * 1000;
 const REPORT_PERIODS = ['daily', 'weekly', 'monthly'];
@@ -45,6 +48,14 @@ const translations = {
     overview: 'Overview',
     devices: 'Devices',
     reporting: 'Reporting',
+    fetchingData: 'Fetching and loading data...',
+    fetchingHint: 'Larger queries may take a moment.',
+    preparingReport: 'Loading history and preparing your report...',
+    preparingExport: 'Loading history and preparing your CSV...',
+    newerPage: 'Newer records',
+    olderPage: 'Older records',
+    historyPage: 'History page',
+    pageScope: 'Charts and date filters apply to this block of up to 100 records. CSV exports use the full history.',
     admin: 'Admin',
     users: 'Users',
     signOut: 'Sign out',
@@ -214,6 +225,14 @@ const translations = {
     overview: 'Resumen',
     devices: 'Dispositivos',
     reporting: 'Reportes',
+    fetchingData: 'Recuperando y cargando datos...',
+    fetchingHint: 'Las consultas grandes pueden tardar unos momentos.',
+    preparingReport: 'Cargando historial y preparando el reporte...',
+    preparingExport: 'Cargando historial y preparando tu CSV...',
+    newerPage: 'Registros más recientes',
+    olderPage: 'Registros anteriores',
+    historyPage: 'Página del historial',
+    pageScope: 'Las gráficas y fechas filtran este bloque de hasta 100 registros. El CSV usa el historial completo.',
     admin: 'Admin',
     users: 'Usuarios',
     signOut: 'Cerrar sesion',
@@ -555,7 +574,7 @@ const buildMiniHistory = (history) => {
   return Object.entries(history)
     .map(([key, value]) => normalizeReading(value, key))
     .sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
-    .slice(-24)
+    .slice(-OVERVIEW_HISTORY_SIZE)
     .map((reading) => ({
       ...reading,
       chartTime: new Date(Number(reading.timestamp)),
@@ -1877,9 +1896,11 @@ const AdminPanel = ({ labels, users, currentUserProfile }) => {
 };
 
 const App = () => {
-  const [latestReading, setLatestReading] = useState(null);
   const [history, setHistory] = useState([]);
-  const [devices, setDevices] = useState([DEFAULT_DEVICE_ID]);
+  const [historyCursors, setHistoryCursors] = useState([null]);
+  const [hasOlderHistory, setHasOlderHistory] = useState(false);
+  const [oldestHistoryKey, setOldestHistoryKey] = useState(null);
+  const [devices, setDevices] = useState([]);
   const [deviceSummaries, setDeviceSummaries] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(getInitialDevice);
   const [activeSection, setActiveSection] = useState('overview');
@@ -1910,16 +1931,18 @@ const App = () => {
 
   const t = translations[language];
   const locale = language === 'es' ? 'es-MX' : 'en-US';
+  const hasDeviceAccess = Boolean(currentUser && currentUserProfile);
 
   const updateLanguage = (nextLanguage) => {
     setLanguage(nextLanguage);
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
   };
 
-  const updateSelectedDevice = (deviceId) => {
+  const updateSelectedDevice = useCallback((deviceId) => {
+    setHistoryCursors([null]);
     setSelectedDeviceId(deviceId);
     window.localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
-  };
+  }, []);
 
   const toggleExportDevice = (deviceId) => {
     setExportDeviceIds((current) =>
@@ -2130,107 +2153,136 @@ const App = () => {
       return undefined;
     }
 
-    if (!currentUser || !currentUserProfile) {
+    if (!hasDeviceAccess) {
+      setDevices([]);
+      setDeviceSummaries([]);
       return undefined;
     }
 
-    const devicesRef = ref(database, DEVICES_PATH);
-
-    const unsubscribeDevices = onValue(
-      devicesRef,
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setDevices([]);
-          setLoading((current) => ({ ...current, devices: false }));
-          return;
-        }
-
-        const deviceEntries = Object.entries(snapshot.val()).sort(([a], [b]) => a.localeCompare(b));
-        const deviceIds = deviceEntries.map(([deviceId]) => deviceId);
-        const summaries = deviceEntries.map(([deviceId, deviceData]) => ({
-          id: deviceId,
-          latest: deviceData?.latest ? normalizeReading(deviceData.latest, 'latest') : null,
-          history: buildMiniHistory(deviceData?.history),
-        }));
-
-        setDevices(deviceIds);
-        setDeviceSummaries(summaries);
+    setLoading((current) => ({ ...current, devices: true }));
+    setDeviceDiscoveryError(null);
+    return watchDeviceDirectory({
+      databaseUrl: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+      user: currentUser,
+      onDevices: (deviceIds) => {
+        setDevices((current) =>
+          current.length === deviceIds.length && current.every((id, index) => id === deviceIds[index])
+            ? current
+            : deviceIds,
+        );
         setExportDeviceIds((current) => {
           const existing = current.filter((deviceId) => deviceIds.includes(deviceId));
           return existing.length > 0 ? existing : deviceIds;
         });
         setDeviceDiscoveryError(null);
         setLoading((current) => ({ ...current, devices: false }));
-
-        if (!deviceIds.includes(selectedDeviceId)) {
-          updateSelectedDevice(deviceIds[0] ?? DEFAULT_DEVICE_ID);
-        }
       },
-      (firebaseError) => {
+      onError: (firebaseError) => {
         setDeviceDiscoveryError(firebaseError.message);
-        setDevices([selectedDeviceId]);
+        // Keep an already discovered list on transient failures. A known device
+        // can still be read directly when list permissions are unavailable.
+        setDevices((current) => current.length ? current : [getInitialDevice()]);
         setLoading((current) => ({ ...current, devices: false }));
       },
-    );
-
-    return () => {
-      unsubscribeDevices();
-    };
-  }, [currentUser, currentUserProfile, selectedDeviceId]);
+    });
+  }, [currentUser, hasDeviceAccess]);
 
   useEffect(() => {
-    if (!database || !selectedDeviceId || !currentUser || !currentUserProfile) {
+    if (devices.length > 0 && !devices.includes(selectedDeviceId)) {
+      updateSelectedDevice(devices[0]);
+    }
+  }, [devices, selectedDeviceId, updateSelectedDevice]);
+
+  // Current readings stay subscribed across navigation. History never gates
+  // discovery or the live values, and changing selection does not reconnect them.
+  useEffect(() => {
+    if (!database || !hasDeviceAccess) return undefined;
+    let cancelled = false;
+    setDeviceSummaries((current) => devices.map((id) =>
+      current.find((device) => device.id === id) ?? { id, latest: null, history: [] },
+    ));
+    const subscriptions = devices.map((id) => onValue(
+      ref(database, `/devices/${id}/latest`),
+      (snapshot) => {
+        if (cancelled) return;
+        const latest = snapshot.exists() ? normalizeReading(snapshot.val(), 'latest') : null;
+        setDeviceSummaries((current) => current.map((device) =>
+          device.id === id ? { ...device, latest, latestLoaded: true } : device,
+        ));
+      },
+      (firebaseError) => {
+        if (cancelled) return;
+        setDeviceDiscoveryError(firebaseError.message);
+        setError(firebaseError.message);
+        setDeviceSummaries((current) => current.map((device) =>
+          device.id === id ? { ...device, latest: null, latestLoaded: true } : device,
+        ));
+      },
+    ));
+    return () => {
+      cancelled = true;
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [devices, hasDeviceAccess, currentUser]);
+
+  useEffect(() => {
+    if (!database || !hasDeviceAccess || activeSection !== 'overview') return undefined;
+    let cancelled = false;
+    const subscriptions = devices.map((id) => onValue(
+      query(ref(database, `/devices/${id}/history`), orderByKey(), limitToLast(OVERVIEW_HISTORY_SIZE)),
+      (snapshot) => {
+        if (cancelled) return;
+        const miniHistory = buildMiniHistory(snapshot.val());
+        setDeviceSummaries((current) => current.map((device) =>
+          device.id === id ? { ...device, history: miniHistory } : device,
+        ));
+      },
+      (firebaseError) => {
+        if (!cancelled) setDeviceDiscoveryError(firebaseError.message);
+      },
+    ));
+    return () => {
+      cancelled = true;
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [activeSection, devices, hasDeviceAccess, currentUser]);
+
+  const selectedSummary = deviceSummaries.find((device) => device.id === selectedDeviceId);
+  const latestReading = selectedSummary?.latest ?? null;
+  const isLatestLoading = hasDeviceAccess && devices.length > 0 && !selectedSummary?.latestLoaded;
+
+  useEffect(() => {
+    setHistory([]);
+    setHasOlderHistory(false);
+    setOldestHistoryKey(null);
+    if (!database || !hasDeviceAccess || activeSection !== 'devices' || !devices.includes(selectedDeviceId)) {
+      setLoading((current) => ({ ...current, history: false }));
       return undefined;
     }
 
-    setLatestReading(null);
-    setHistory([]);
-    setLoading((current) => ({ ...current, latest: true, history: true }));
+    setLoading((current) => ({ ...current, history: true }));
     setError(null);
-
-    const latestPath = `/devices/${selectedDeviceId}/latest`;
-    const historyPath = `/devices/${selectedDeviceId}/history`;
-    const latestRef = ref(database, latestPath);
-    const historyRef = ref(database, historyPath);
-
-    const unsubscribeLatest = onValue(
-      latestRef,
-      (snapshot) => {
-        const nextLatestReading = snapshot.exists()
-          ? normalizeReading(snapshot.val(), 'latest')
-          : null;
-
-        setLatestReading(nextLatestReading);
-        setDeviceSummaries((current) => {
-          const nextSummary = { id: selectedDeviceId, latest: nextLatestReading };
-          if (current.some((device) => device.id === selectedDeviceId)) {
-            return current.map((device) =>
-              device.id === selectedDeviceId ? { ...device, latest: nextLatestReading } : device,
-            );
-          }
-          return [nextSummary, ...current];
-        });
-        setDevices((current) =>
-          current.includes(selectedDeviceId) ? current : [selectedDeviceId, ...current],
-        );
-        setLoading((current) => ({ ...current, latest: false }));
-      },
-      (firebaseError) => {
-        setError(firebaseError.message);
-        setLoading((current) => ({ ...current, latest: false }));
-      },
-    );
+    let cancelled = false;
+    const cursor = historyCursors.at(-1);
+    const historyRef = query(ref(database, `/devices/${selectedDeviceId}/history`), orderByKey(),
+      ...(cursor === null ? [] : [endBefore(cursor)]), limitToLast(HISTORY_PAGE_SIZE + 1));
 
     const unsubscribeHistory = onValue(
       historyRef,
       (snapshot) => {
+        if (cancelled) return;
+        const entries = [];
+        snapshot.forEach((child) => { entries.push([child.key, child.val()]); });
+        setHasOlderHistory(entries.length > HISTORY_PAGE_SIZE);
+        const pageEntries = entries.slice(-HISTORY_PAGE_SIZE);
+        setOldestHistoryKey(pageEntries[0]?.[0] ?? null);
         if (!snapshot.exists()) {
           setHistory([]);
           setLoading((current) => ({ ...current, history: false }));
           return;
         }
 
-        const rows = Object.entries(snapshot.val())
+        const rows = pageEntries
           .map(([key, value]) => normalizeReading(value, key))
           .sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
 
@@ -2238,16 +2290,17 @@ const App = () => {
         setLoading((current) => ({ ...current, history: false }));
       },
       (firebaseError) => {
+        if (cancelled) return;
         setError(firebaseError.message);
         setLoading((current) => ({ ...current, history: false }));
       },
     );
 
     return () => {
-      unsubscribeLatest();
+      cancelled = true;
       unsubscribeHistory();
     };
-  }, [currentUser, currentUserProfile, selectedDeviceId]);
+  }, [activeSection, devices, hasDeviceAccess, currentUser, selectedDeviceId, historyCursors]);
 
   useEffect(() => {
     if (
@@ -2316,7 +2369,7 @@ const App = () => {
       })),
     [filteredHistory],
   );
-  const isLoading = loading.devices || loading.latest || loading.history;
+  const isLoading = loading.devices || isLatestLoading || loading.history;
   const hasHistory = history.length > 0;
   const motionActive = Boolean(latestReading?.motion);
   const lastUpdatedTimestamp = latestReading?.time;
@@ -2908,6 +2961,14 @@ const App = () => {
           </div>
           </div>
         </header>
+        {(isExporting || (activeSection === 'reporting' && reportLoading) ||
+          (activeSection === 'devices' && isLoading) ||
+          (activeSection === 'overview' && loading.devices)) ? (
+          <DataLoading
+            title={isExporting ? t.preparingExport : activeSection === 'reporting' ? t.preparingReport : t.fetchingData}
+            description={t.fetchingHint}
+          />
+        ) : null}
 
         {error ? (
           <section className="mb-8 rounded-[28px] border border-red-200 bg-red-50/80 p-5 text-red-700">
@@ -2985,11 +3046,6 @@ const App = () => {
               </section>
             ) : null}
 
-            {reportLoading ? (
-              <section className="glass-card rounded-[20px] p-4 text-sm font-semibold text-gray-500">
-                {t.reportLoading}
-              </section>
-            ) : null}
 
             {!reportLoading && reportSummary.readingCount === 0 ? (
               <section className="glass-card rounded-[22px] p-6 text-center">
@@ -3402,7 +3458,7 @@ const App = () => {
             </div>
             <div className="liquid-surface flex min-h-[48px] flex-col justify-center rounded-xl px-2 py-1.5 sm:min-h-[72px] sm:px-3.5 sm:py-2.5">
               <p className="text-[9px] font-semibold uppercase text-gray-500 sm:text-xs">{t.lastUpdated}</p>
-              {loading.latest ? (
+              {isLatestLoading ? (
                 <div className="mt-2 h-5 w-36 animate-pulse rounded-full bg-white/50" />
               ) : (
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -3424,11 +3480,6 @@ const App = () => {
           </div>
         </section>
 
-        {isLoading ? (
-          <section className="glass-card mb-5 rounded-[22px] p-4 text-sm text-gray-500">
-            {t.loading}
-          </section>
-        ) : null}
 
         {!isLoading && !latestReading && !hasHistory ? (
           <section className="glass-card mb-5 rounded-[22px] p-6 text-center">
@@ -3447,7 +3498,7 @@ const App = () => {
             helper={t.activeDevice}
             icon="status"
             accent={isOnline ? 'green' : 'neutral'}
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
             compact
           />
           <MetricCard
@@ -3457,7 +3508,7 @@ const App = () => {
             helper={t.currentRoomAir}
             icon="temperature"
             accent="blue"
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
           <MetricCard
             label={t.humidity}
@@ -3466,7 +3517,7 @@ const App = () => {
             helper={t.relativeHumidity}
             icon="humidity"
             accent="green"
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
           <MetricCard
             label={t.light}
@@ -3475,7 +3526,7 @@ const App = () => {
             helper={t.ambientBrightness}
             icon="light"
             accent="amber"
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
           <MetricCard
             label={t.motion}
@@ -3483,7 +3534,7 @@ const App = () => {
             helper={t.pirSensorState}
             icon="motion"
             accent={motionActive ? 'red' : 'neutral'}
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
             compact
           />
           <MetricCard
@@ -3493,7 +3544,7 @@ const App = () => {
             helper={co2Trend}
             icon="co2"
             accent={getCo2Accent(latestReading?.eco2)}
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
           <MetricCard
             label={t.tvoc}
@@ -3502,7 +3553,7 @@ const App = () => {
             helper={t.tvocSubtitle}
             icon="tvoc"
             accent="blue"
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
           <MetricCard
             label={t.wifiSignal}
@@ -3514,11 +3565,17 @@ const App = () => {
             }
             icon="wifi"
             accent={isOnline ? wifiSignalStatus.accent : 'neutral'}
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
             compact
           />
         </section>
 
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+          <span>{t.historyPage} {historyCursors.length}</span>
+          <button type="button" disabled={loading.history || historyCursors.length === 1} onClick={() => setHistoryCursors((current) => current.slice(0, -1))} className="liquid-control rounded-lg px-3 py-2 disabled:opacity-40">{t.newerPage}</button>
+          <button type="button" disabled={loading.history || !hasOlderHistory || !oldestHistoryKey} onClick={() => setHistoryCursors((current) => [...current, oldestHistoryKey])} className="liquid-control rounded-lg px-3 py-2 disabled:opacity-40">{t.olderPage}</button>
+          <p className="w-full text-gray-500">{t.pageScope}</p>
+        </div>
         <section className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
           <AirQualityPanel
             labels={t}
@@ -3528,7 +3585,7 @@ const App = () => {
             status={airQualityStatus}
             co2Trend={co2Trend}
             tvocTrend={tvocTrend}
-            isLoading={loading.latest}
+            isLoading={isLatestLoading}
           />
 
           <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
